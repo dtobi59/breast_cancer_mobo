@@ -19,7 +19,7 @@ from sklearn.model_selection import train_test_split
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.preprocessing import MammographyPreprocessor
-from src.datasets import VinDRMammoBinaryDataset
+from src.datasets import VinDRMammoBinaryDataset, create_breast_level_splits
 from src.optimization import BreastCancerOptimizationProblem, HyperparameterLogger
 from configs.config import (
     VINDR_IMAGES_ROOT,
@@ -43,7 +43,7 @@ from pymoo.util.ref_dirs import get_reference_directions
 
 def setup_datasets():
     """
-    Setup training and validation datasets.
+    Setup training and validation datasets with BREAST-LEVEL split.
 
     Returns:
         train_dataset, val_dataset, pos_weight
@@ -53,7 +53,7 @@ def setup_datasets():
     # Create preprocessor
     preprocessor = MammographyPreprocessor()
 
-    # Load full dataset
+    # Load full dataset without augmentation
     full_dataset = VinDRMammoBinaryDataset(
         images_root=VINDR_IMAGES_ROOT,
         csv_file=VINDR_CSV,
@@ -61,31 +61,21 @@ def setup_datasets():
         transform=None  # Will be set during optimization
     )
 
-    # Get labels for stratified split
-    labels = [full_dataset.samples[i][-1] for i in range(len(full_dataset))]
-
-    # Fixed train/val split
-    indices = np.arange(len(full_dataset))
-    train_idx, val_idx = train_test_split(
-        indices,
-        test_size=TRAIN_VAL_SPLIT,
-        stratify=labels,
-        random_state=RANDOM_SEED
+    # BREAST-LEVEL SPLIT (not image-level!)
+    # This ensures CC and MLO views from same breast stay together
+    train_dataset, val_dataset = create_breast_level_splits(
+        dataset=full_dataset,
+        train_ratio=1.0 - TRAIN_VAL_SPLIT,  # TRAIN_VAL_SPLIT is validation fraction
+        random_state=RANDOM_SEED,
+        stratify=True
     )
 
-    # Create subsets
-    from torch.utils.data import Subset
-    train_dataset = Subset(full_dataset, train_idx)
-    val_dataset = Subset(full_dataset, val_idx)
-
     # Compute pos_weight for class imbalance
-    train_labels = [labels[i] for i in train_idx]
+    train_labels = [full_dataset.samples[i][-1] for i in train_dataset.indices]
     n_benign = sum(1 for l in train_labels if l == 0)
     n_malignant = sum(1 for l in train_labels if l == 1)
     pos_weight = n_benign / n_malignant
 
-    print(f"Train samples: {len(train_dataset)} (Benign: {n_benign}, Malignant: {n_malignant})")
-    print(f"Val samples: {len(val_dataset)}")
     print(f"Pos weight: {pos_weight:.3f}")
 
     return train_dataset, val_dataset, pos_weight

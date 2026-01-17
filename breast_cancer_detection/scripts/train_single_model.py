@@ -18,7 +18,7 @@ from sklearn.model_selection import train_test_split
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.preprocessing import MammographyPreprocessor
-from src.datasets import VinDRMammoBinaryDataset
+from src.datasets import VinDRMammoBinaryDataset, create_breast_level_splits
 from src.augmentations import get_augmentation
 from src.models import build_resnet152
 from src.training import train_model
@@ -64,39 +64,44 @@ def main():
     print("\nSetting up datasets...")
     preprocessor = MammographyPreprocessor()
 
+    # Create full dataset WITHOUT augmentation
     full_dataset = VinDRMammoBinaryDataset(
         images_root=VINDR_IMAGES_ROOT,
         csv_file=VINDR_CSV,
-        preprocessor=preprocessor
+        preprocessor=preprocessor,
+        transform=None  # No transform yet
     )
 
-    # Split dataset
-    labels = [full_dataset.samples[i][-1] for i in range(len(full_dataset))]
-    indices = np.arange(len(full_dataset))
-
-    train_idx, val_idx = train_test_split(
-        indices,
-        test_size=TRAIN_VAL_SPLIT,
-        stratify=labels,
-        random_state=RANDOM_SEED
+    # BREAST-LEVEL SPLIT (not image-level!)
+    # This ensures CC and MLO views from same breast stay together
+    train_dataset, val_dataset = create_breast_level_splits(
+        dataset=full_dataset,
+        train_ratio=1.0 - TRAIN_VAL_SPLIT,  # TRAIN_VAL_SPLIT is validation fraction
+        random_state=RANDOM_SEED,
+        stratify=True
     )
 
-    train_dataset = Subset(full_dataset, train_idx)
-    val_dataset = Subset(full_dataset, val_idx)
-
-    # Compute pos_weight
-    train_labels = [labels[i] for i in train_idx]
+    # Compute pos_weight from training set
+    train_labels = [full_dataset.samples[i][-1] for i in train_dataset.indices]
     n_benign = sum(1 for l in train_labels if l == 0)
     n_malignant = sum(1 for l in train_labels if l == 1)
     pos_weight = n_benign / n_malignant
 
-    print(f"Train: {len(train_dataset)} samples (Benign: {n_benign}, Malignant: {n_malignant})")
-    print(f"Val: {len(val_dataset)} samples")
     print(f"Positive class weight: {pos_weight:.3f}")
 
-    # Setup augmentation
+    # Setup augmentation ONLY for training
+    # Create a wrapper dataset with augmentation for training only
     augmentation = get_augmentation(args.aug_strength)
-    full_dataset.transform = augmentation
+
+    # Create separate dataset instance for training with augmentation
+    train_dataset_with_aug = VinDRMammoBinaryDataset(
+        images_root=VINDR_IMAGES_ROOT,
+        csv_file=VINDR_CSV,
+        preprocessor=preprocessor,
+        transform=augmentation  # Apply augmentation
+    )
+    # Wrap with same indices
+    train_dataset = Subset(train_dataset_with_aug, train_dataset.indices)
 
     # Create dataloaders
     train_loader = DataLoader(

@@ -107,10 +107,17 @@ def aggregate_breast_level_predictions(model, dataset, device, perturb_fn=None):
             image_indices = group["image_indices"]
             label = group["label"]
 
-            # If using a subset, only include breast groups where all images are in subset
+            # If using a subset, filter to only images in subset
             if subset_indices is not None:
-                if not all(idx in subset_indices for idx in image_indices):
+                # Get intersection of breast images and subset indices
+                valid_indices = [idx for idx in image_indices if idx in subset_indices]
+
+                # Skip if no images from this breast are in the subset
+                if len(valid_indices) == 0:
                     continue
+
+                # Use only the valid indices (may be incomplete breast group)
+                image_indices = valid_indices
 
             # Collect predictions for all images in this breast
             image_probs = []
@@ -133,7 +140,19 @@ def aggregate_breast_level_predictions(model, dataset, device, perturb_fn=None):
             breast_labels.append(label)
             breast_probs.append(breast_prob)
 
-    return np.array(breast_labels), np.array(breast_probs)
+    y_true = np.array(breast_labels)
+    y_probs = np.array(breast_probs)
+
+    # Sanity check
+    if len(y_true) == 0:
+        raise ValueError(
+            f"No breast groups found in the dataset/subset. "
+            f"Dataset has {len(base_dataset)} images. "
+            f"Subset has {len(subset_indices) if subset_indices else 'N/A'} indices. "
+            f"Total breast groups in base dataset: {len(breast_groups)}."
+        )
+
+    return y_true, y_probs
 
 
 def compute_metrics(y_true, y_probs, threshold=0.5):

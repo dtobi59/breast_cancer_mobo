@@ -9,10 +9,12 @@ Supports:
 import os
 import re
 from pathlib import Path
+from typing import Optional
 import pandas as pd
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset
 import numpy as np
+from sklearn.model_selection import train_test_split
 
 
 def map_birads_to_binary(birads, benign_list=[1, 2, 3], malignant_list=[5, 6]):
@@ -46,6 +48,82 @@ def map_birads_to_binary(birads, benign_list=[1, 2, 3], malignant_list=[5, 6]):
 
     # BI-RADS 4 or others → exclude
     return None
+
+
+def create_breast_level_splits(dataset, train_ratio=0.8, random_state=42, stratify=True):
+    """
+    Create train/val splits at the breast level (preserves complete breast groups).
+
+    This ensures that both CC and MLO views from the same breast stay together
+    in either train or validation set, which is crucial for proper Noisy-OR evaluation.
+
+    Args:
+        dataset: VinDRMammoBinaryDataset instance
+        train_ratio: Fraction of data for training (default 0.8)
+        random_state: Random seed for reproducibility
+        stratify: Whether to stratify by breast-level labels
+
+    Returns:
+        train_subset: Subset for training
+        val_subset: Subset for validation
+    """
+    # Get all breast groups
+    breast_groups = dataset.get_breast_groups()
+
+    # Collect breast-level info
+    breast_indices_list = []  # List of image indices for each breast
+    breast_labels = []  # Label for each breast
+
+    for group in breast_groups:
+        breast_indices_list.append(group["image_indices"])
+        breast_labels.append(group["label"])
+
+    breast_labels = np.array(breast_labels)
+
+    # Split at breast level
+    n_breasts = len(breast_groups)
+    breast_idx = np.arange(n_breasts)
+
+    if stratify:
+        train_breast_idx, val_breast_idx = train_test_split(
+            breast_idx,
+            train_size=train_ratio,
+            random_state=random_state,
+            stratify=breast_labels
+        )
+    else:
+        train_breast_idx, val_breast_idx = train_test_split(
+            breast_idx,
+            train_size=train_ratio,
+            random_state=random_state
+        )
+
+    # Collect all image indices for train and val
+    train_image_indices = []
+    for idx in train_breast_idx:
+        train_image_indices.extend(breast_indices_list[idx])
+
+    val_image_indices = []
+    for idx in val_breast_idx:
+        val_image_indices.extend(breast_indices_list[idx])
+
+    # Create subsets
+    train_subset = Subset(dataset, train_image_indices)
+    val_subset = Subset(dataset, val_image_indices)
+
+    # Print statistics
+    print(f"\n[Breast-level split]")
+    print(f"  Total breasts: {n_breasts}")
+    print(f"  Train breasts: {len(train_breast_idx)} ({len(train_image_indices)} images)")
+    print(f"  Val breasts: {len(val_breast_idx)} ({len(val_image_indices)} images)")
+
+    if stratify:
+        train_labels = breast_labels[train_breast_idx]
+        val_labels = breast_labels[val_breast_idx]
+        print(f"  Train label distribution: {np.bincount(train_labels)}")
+        print(f"  Val label distribution: {np.bincount(val_labels)}")
+
+    return train_subset, val_subset
 
 
 class VinDRMammoBinaryDataset(Dataset):
@@ -310,3 +388,154 @@ class INbreastDataset(Dataset):
             breast_groups[breast_id]["image_indices"].append(idx)
 
         return list(breast_groups.values())
+
+
+# ============================================================================
+# FACTORY FUNCTIONS FOR ENTROPY ADAPTATION
+# ============================================================================
+
+def create_vindr_dataset_with_adaptation(
+    images_root: str,
+    csv_file: str,
+    split: str,  # 'train', 'val', 'test'
+    entropy_stats_path: Optional[str] = None,
+    apply_adaptation: bool = False,
+    transform=None,
+    benign_birads=[1, 2, 3],
+    malignant_birads=[5, 6]
+) -> VinDRMammoBinaryDataset:
+    """
+    Create VinDr dataset with optional entropy adaptation.
+
+    This factory function enables easy creation of datasets with or without
+    entropy adaptation for domain shift mitigation.
+
+    Args:
+        images_root: Path to images directory
+        csv_file: Path to metadata CSV
+        split: Dataset split identifier ('train', 'val', 'test')
+        entropy_stats_path: Path to cached entropy statistics JSON
+        apply_adaptation: Whether to apply entropy adaptation
+        transform: Optional augmentation transform (for training)
+        benign_birads: BI-RADS values for benign class
+        malignant_birads: BI-RADS values for malignant class
+
+    Returns:
+        VinDRMammoBinaryDataset instance
+
+    Usage:
+        # Training: NO adaptation (preserve clean training data)
+        >>> train_ds = create_vindr_dataset_with_adaptation(
+        ...     images_root=VINDR_IMAGES_ROOT,
+        ...     csv_file=VINDR_CSV,
+        ...     split='train',
+        ...     apply_adaptation=False
+        ... )
+
+        # Validation: WITH adaptation (experimental per user requirement)
+        >>> val_ds = create_vindr_dataset_with_adaptation(
+        ...     images_root=VINDR_IMAGES_ROOT,
+        ...     csv_file=VINDR_CSV,
+        ...     split='val',
+        ...     entropy_stats_path='cache/entropy_stats_vindr_train.json',
+        ...     apply_adaptation=True
+        ... )
+
+    Note:
+        - Training data should NEVER have adaptation applied
+        - Validation/test data can optionally have adaptation
+        - Adaptation requires entropy_stats_path to be provided
+    """
+    if apply_adaptation and entropy_stats_path:
+        from .domain_adaptation import EntropyStatistics
+        from .adaptive_preprocessing import AdaptiveMammographyPreprocessor
+
+        # Load entropy statistics from cache
+        entropy_stats = EntropyStatistics.load(entropy_stats_path)
+
+        # Create adaptive preprocessor
+        preprocessor = AdaptiveMammographyPreprocessor(
+            target_size=(720, 480),
+            aspect_ratio=1.5,
+            entropy_stats=entropy_stats,
+            apply_adaptation=True
+        )
+    else:
+        # Use regular preprocessor (no adaptation)
+        from .preprocessing import MammographyPreprocessor
+        preprocessor = MammographyPreprocessor(
+            target_size=(720, 480),
+            aspect_ratio=1.5
+        )
+
+    # Create dataset with appropriate preprocessor
+    dataset = VinDRMammoBinaryDataset(
+        images_root=images_root,
+        csv_file=csv_file,
+        preprocessor=preprocessor,
+        transform=transform,
+        benign_birads=benign_birads,
+        malignant_birads=malignant_birads
+    )
+
+    return dataset
+
+
+def create_inbreast_dataset_with_adaptation(
+    dicom_dir: str,
+    csv_file: str,
+    entropy_stats_path: str,
+    benign_birads=[2, 3],
+    malignant_birads=[5, 6]
+) -> INbreastDataset:
+    """
+    Create INbreast dataset with mandatory entropy adaptation.
+
+    For zero-shot evaluation on INbreast (target domain), entropy adaptation
+    is ALWAYS applied to mitigate domain shift.
+
+    Args:
+        dicom_dir: Path to AllDICOMs directory
+        csv_file: Path to INbreast.csv
+        entropy_stats_path: Path to cached entropy statistics (REQUIRED)
+        benign_birads: BI-RADS values for benign class
+        malignant_birads: BI-RADS values for malignant class
+
+    Returns:
+        INbreastDataset instance with adaptation enabled
+
+    Usage:
+        >>> inbreast_ds = create_inbreast_dataset_with_adaptation(
+        ...     dicom_dir=INBREAST_DICOM_DIR,
+        ...     csv_file=INBREAST_CSV,
+        ...     entropy_stats_path='cache/entropy_stats_vindr_train.json'
+        ... )
+
+    Note:
+        Adaptation is always applied for INbreast to align with VinDr-Mammo
+        intensity distribution.
+    """
+    from .domain_adaptation import EntropyStatistics
+    from .adaptive_preprocessing import AdaptiveMammographyPreprocessor
+
+    # Load entropy statistics
+    entropy_stats = EntropyStatistics.load(entropy_stats_path)
+
+    # Create adaptive preprocessor (always enabled for INbreast)
+    preprocessor = AdaptiveMammographyPreprocessor(
+        target_size=(720, 480),
+        aspect_ratio=1.5,
+        entropy_stats=entropy_stats,
+        apply_adaptation=True
+    )
+
+    # Create dataset
+    dataset = INbreastDataset(
+        dicom_dir=dicom_dir,
+        csv_file=csv_file,
+        preprocessor=preprocessor,
+        benign_birads=benign_birads,
+        malignant_birads=malignant_birads
+    )
+
+    return dataset

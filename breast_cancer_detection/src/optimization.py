@@ -10,12 +10,13 @@ pymoo problem definition for multi-objective optimization with NSGA-III.
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from pymoo.core.problem import Problem
 
 from .models import build_resnet152
 from .augmentations import get_augmentation
 from .training import train_model
+from .datasets import VinDRMammoBinaryDataset
 
 
 class BreastCancerOptimizationProblem(Problem):
@@ -161,9 +162,34 @@ class BreastCancerOptimizationProblem(Problem):
         # Create augmentation transform
         augmentation = get_augmentation(hyperparams["augmentation_strength"])
 
-        # Update training dataset with augmentation
-        train_dataset_aug = self.train_dataset
-        train_dataset_aug.transform = augmentation
+        # Handle augmentation for Subset datasets
+        # Create a new dataset instance with augmentation, then wrap with same indices
+        if isinstance(self.train_dataset, Subset):
+            # Get the base dataset and indices
+            base_dataset = self.train_dataset.dataset
+            train_indices = self.train_dataset.indices
+
+            # Create new dataset instance with augmentation
+            if isinstance(base_dataset, VinDRMammoBinaryDataset):
+                # Access the constructor parameters from the original dataset
+                train_dataset_aug = VinDRMammoBinaryDataset(
+                    images_root=base_dataset.images_root,
+                    csv_file=None,  # Won't be used since we copy samples
+                    preprocessor=base_dataset.preprocessor,
+                    transform=augmentation
+                )
+                # Copy samples directly to avoid reloading CSV
+                train_dataset_aug.samples = base_dataset.samples
+                # Wrap with same indices
+                train_dataset_aug = Subset(train_dataset_aug, train_indices)
+            else:
+                # Fallback: try to set transform on base dataset
+                base_dataset.transform = augmentation
+                train_dataset_aug = self.train_dataset
+        else:
+            # Not a Subset, set transform directly
+            self.train_dataset.transform = augmentation
+            train_dataset_aug = self.train_dataset
 
         # Create dataloaders
         train_loader = DataLoader(
