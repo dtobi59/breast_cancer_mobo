@@ -1,0 +1,36 @@
+# ============================================================================
+# ADD THIS CELL IF YOU GET: AttributeError: module 'sympy' has no attribute 'printing'
+# ============================================================================
+# Run this cell, then: Runtime > Restart runtime, then re-run all cells
+# ============================================================================
+
+import subprocess
+import sys
+
+print("Fixing SymPy compatibility issue...")
+
+# Uninstall old SymPy
+subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "sympy"],
+              capture_output=True)
+
+# Install compatible version
+result = subprocess.run([sys.executable, "-m", "pip", "install", "-q", "sympy>=1.12"],
+                       capture_output=True, text=True)
+
+if result.returncode == 0:
+    print("✓ SymPy upgraded successfully")
+    print("")
+    print("="*80)
+    print("NEXT STEP: Runtime > Restart runtime")
+    print("Then re-run all cells from the beginning")
+    print("="*80)
+else:
+    print("✗ Error:", result.stderr)
+
+# ============================================================================
+# AFTER RESTARTING RUNTIME, VERIFY FIX WITH THIS:
+# ============================================================================
+# import sympy
+# print(f"SymPy version: {sympy.__version__}")
+# print(f"Has 'printing': {hasattr(sympy, 'printing')}")  # Should be True
+# ============================================================================

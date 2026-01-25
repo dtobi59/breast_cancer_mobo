@@ -22,7 +22,7 @@ from .evaluation import (
     MetricsTracker
 )
 from .robustness import RobustnessTester, compute_robustness_degradation
-from .optimization import BreastCancerOptimizationProblem, HyperparameterLogger
+from .evaluation_functions import decode_hyperparameters, train_and_evaluate, create_evaluation_function
 from .domain_adaptation import (
     calculate_shannon_entropy,
     adaptive_entropy_transform,
@@ -70,9 +70,10 @@ __all__ = [
     "RobustnessTester",
     "compute_robustness_degradation",
 
-    # Optimization
-    "BreastCancerOptimizationProblem",
-    "HyperparameterLogger",
+    # Evaluation Functions
+    "decode_hyperparameters",
+    "train_and_evaluate",
+    "create_evaluation_function",
 
     # Domain Adaptation
     "calculate_shannon_entropy",

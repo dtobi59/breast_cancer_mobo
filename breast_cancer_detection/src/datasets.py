@@ -138,42 +138,52 @@ class VinDRMammoBinaryDataset(Dataset):
     def __init__(
         self,
         images_root,
-        csv_file,
-        preprocessor,
+        csv_file=None,
+        preprocessor=None,
         transform=None,
         benign_birads=[1, 2, 3],
-        malignant_birads=[5, 6]
+        malignant_birads=[5, 6],
+        samples=None
     ):
         """
         Args:
             images_root: Path to images directory
-            csv_file: Path to metadata CSV
+            csv_file: Path to metadata CSV (optional if samples provided)
             preprocessor: MammographyPreprocessor instance
             transform: Optional augmentation transform
             benign_birads: BI-RADS values for benign class
             malignant_birads: BI-RADS values for malignant class
+            samples: Pre-loaded samples array (optional, avoids CSV re-reading)
         """
         self.images_root = Path(images_root)
         self.preprocessor = preprocessor
         self.transform = transform
 
-        # Load and filter data
-        df = pd.read_csv(csv_file)
+        # Load from CSV or use provided samples
+        if samples is not None:
+            # Use pre-loaded samples (avoids CSV re-reading during optimization)
+            self.samples = samples
+            print(f"[VinDr-Mammo] Using {len(self.samples)} provided samples")
+        elif csv_file is not None:
+            # Load and filter data from CSV
+            df = pd.read_csv(csv_file)
 
-        # Map BI-RADS to binary labels
-        df["label"] = df["breast_birads"].apply(
-            lambda x: map_birads_to_binary(x, benign_birads, malignant_birads)
-        )
-        df = df.dropna(subset=["label"])
-        df["label"] = df["label"].astype(int)
+            # Map BI-RADS to binary labels
+            df["label"] = df["breast_birads"].apply(
+                lambda x: map_birads_to_binary(x, benign_birads, malignant_birads)
+            )
+            df = df.dropna(subset=["label"])
+            df["label"] = df["label"].astype(int)
 
-        # Store samples with metadata for breast-level aggregation
-        # Keep: study_id, image_id, laterality, view_position, label
-        self.samples = df[
-            ["study_id", "image_id", "laterality", "view_position", "label"]
-        ].drop_duplicates().values
+            # Store samples with metadata for breast-level aggregation
+            # Keep: study_id, image_id, laterality, view_position, label
+            self.samples = df[
+                ["study_id", "image_id", "laterality", "view_position", "label"]
+            ].drop_duplicates().values
 
-        print(f"[VinDr-Mammo] Loaded {len(self.samples)} image-level samples")
+            print(f"[VinDr-Mammo] Loaded {len(self.samples)} image-level samples")
+        else:
+            raise ValueError("Either csv_file or samples must be provided")
 
     def __len__(self):
         return len(self.samples)
