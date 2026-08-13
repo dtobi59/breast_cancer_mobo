@@ -1,0 +1,24 @@
+experiment:
+  seed: 42
+
+model:
+  architecture: resnet152
+
+optimization:
+  n_objectives: 4
+  n_initial: 16
+  n_iterations: 6
+  candidates_per_iteration: 4
+
+training:
+  max_epochs: 100
+  patience: 10
+  batch_size: 4
+  num_workers: 2
+
+data:
+  inbreast_calibration_ratio: 0.2
+
+evaluation:
+  vindr_level: breast
+  inbreast_level: image

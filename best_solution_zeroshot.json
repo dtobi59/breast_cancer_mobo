@@ -1,0 +1,23 @@
+{
+  "solution_id": 4,
+  "hyperparameters": {
+    "learning_rate": 1.18e-05,
+    "weight_decay": 1.7e-06,
+    "dropout": 0.198369841,
+    "augmentation_strength": 0.358122111,
+    "unfreeze_fraction": 0.860181849
+  },
+  "validation_metrics": {
+    "pr_auc": 0.945081247,
+    "auroc": 0.948038176,
+    "brier": 0.089088687,
+    "robustness_degradation": 0.341141711
+  },
+  "metadata": {
+    "description": "Best solution from multi-objective optimization for zero-shot evaluation",
+    "optimization_method": "BoTorch qNEHVI (Multi-Objective)",
+    "source": "Multi-objective Bayesian optimization Pareto front",
+    "evaluation_dataset": "VinDr-Mammo validation set",
+    "target_dataset": "INbreast (zero-shot transfer)"
+  }
+}

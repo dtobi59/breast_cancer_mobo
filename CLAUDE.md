@@ -155,14 +155,14 @@ Four objectives:
 
 ### Robustness Degradation
 
-- Apply **mild intensity perturbations at inference**
+<!-- - Apply **mild intensity perturbations at inference**
 - Compute:
   - PR-AUC (standard inference)
   - PR-AUC (perturbed inference)
 
 \[
 R = PR\text{-}AUC_{standard} - PR\text{-}AUC_{perturbed}
-\]
+\] -->
 
 ---
 
@@ -220,7 +220,6 @@ For both validation and INbreast:
   - Augmentation
   - Noisy-OR aggregation
   - Robustness evaluation
-- NSGA-III optimization script with logging
 - Evaluation scripts:
   - Source validation
   - Zero-shot INbreast transfer

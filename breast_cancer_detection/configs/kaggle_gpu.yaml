@@ -1,0 +1,32 @@
+environment:
+  name: kaggle_gpu
+  device: cuda
+
+optimization:
+  n_initial: 16
+  n_iterations: 6
+  candidates_per_iteration: 4
+  resume_from_csv: false
+
+training:
+  max_epochs: 100
+  patience: 10
+  batch_size: 4
+  num_workers: 2
+
+smoke_test:
+  enabled: false
+
+paths:
+  project_root: "/kaggle/input/core-code2"
+  
+  vindr_images: "/kaggle/input/vindr-dataset-dave/vindr_mammo_dataset_dave/images"
+  vindr_csv: "/kaggle/input/dataaa/stratified_selection.csv"
+
+  inbreast_dicom_dir: "/kaggle/input/inbreast/AllDICOMs"
+  inbreast_metadata: "/kaggle/input/inbreast/INbreast.xls"
+
+  csv_resume_path: ""
+  inbreast_split_info_path: ""
+
+  output_dir: "/kaggle/working/results/botorch_mobo"

@@ -1,0 +1,123 @@
+print("="*80)
+print("DEFINING FIXED INBREAST DATASET (File Name-based Patient ID)")
+print("="*80)
+
+import re
+import os
+from pathlib import Path
+import pandas as pd
+import torch
+
+class INbreastDatasetFixed(INbreastDataset):
+    """INbreast with Patient ID extracted from File Name."""
+
+    def __init__(self, dicom_dir, csv_file, preprocessor, benign_birads=[2, 3], malignant_birads=[5, 6]):
+        self.dicom_dir = Path(dicom_dir)
+        self.preprocessor = preprocessor
+
+        df = pd.read_csv(csv_file)
+
+        samples = []
+        patient_id_extraction_errors = 0
+
+        for _, row in df.iterrows():
+            file_id = str(row["File Name"]).strip()
+            birads_raw = str(row["Bi-Rads"]).lower().strip()
+
+            match = re.search(r"\b([1-6])", birads_raw)
+            if match is None:
+                continue
+
+            birads_num = int(match.group(1))
+            label = map_birads_to_binary(birads_num, benign_birads, malignant_birads)
+            if label is None:
+                continue
+
+            path = self._find_inbreast_dicom(file_id)
+            if path is None or not os.path.exists(path):
+                continue
+
+            # Extract patient ID from File Name
+            # INbreast format: "20586908_6c613a14b80a8591_MG_R_CC_ANON" or similar
+            # We'll use the first numeric part as patient ID
+            patient_id_match = re.match(r"^(\d+)", file_id)
+            if patient_id_match:
+                patient_id = patient_id_match.group(1)
+            else:
+                # Fallback: use first part before underscore
+                parts = file_id.split('_')
+                if len(parts) > 0:
+                    patient_id = parts[0]
+                else:
+                    patient_id = file_id
+                    patient_id_extraction_errors += 1
+
+            # Extract laterality from File Name
+            # Look for _L_ or _R_ or _LEFT_ or _RIGHT_ patterns
+            laterality_match = re.search(r'_([LR])_', file_id.upper())
+            if laterality_match:
+                laterality = laterality_match.group(1)
+            else:
+                # Fallback to column if available
+                if 'Laterality' in row and pd.notna(row['Laterality']):
+                    laterality = str(row["Laterality"]).strip().upper()
+                else:
+                    laterality = "UNKNOWN"
+
+            # Extract view position
+            view_match = re.search(r'_(CC|MLO|ML)_', file_id.upper())
+            if view_match:
+                view_position = view_match.group(1)
+            else:
+                # Fallback to column if available
+                if 'View' in row and pd.notna(row['View']):
+                    view_position = str(row["View"]).strip().upper()
+                else:
+                    view_position = "UNKNOWN"
+
+            samples.append((path, label, file_id, laterality, view_position, patient_id))
+
+        self.samples = samples
+
+        # Extract unique patient IDs for verification
+        unique_patients = len(set([s[5] for s in samples]))
+        unique_breasts = len(set([(s[5], s[3]) for s in samples]))
+
+        print(f"[INbreast Fixed - Filename-based Patient ID]")
+        print(f"  Total samples: {len(self.samples)}")
+        print(f"  Unique patient IDs: {unique_patients}")
+        print(f"  Unique breasts: {unique_breasts}")
+        if patient_id_extraction_errors > 0:
+            print(f"  ⚠ Patient ID extraction issues: {patient_id_extraction_errors}")
+
+    def __getitem__(self, idx):
+        sample = self.samples[idx]
+        dicom_path = sample[0]
+        label = sample[1]
+
+        img = self.preprocessor(dicom_path)
+        img = torch.from_numpy(img).permute(2, 0, 1).float() / 255.0
+        label = torch.tensor(label, dtype=torch.long)
+
+        return img, label
+
+    def get_breast_groups(self):
+        """Group by (Patient ID from filename, Laterality)."""
+        breast_groups = {}
+
+        for idx, sample in enumerate(self.samples):
+            path, label, file_id, laterality, view_position, patient_id = sample
+            breast_id = (patient_id, laterality)
+
+            if breast_id not in breast_groups:
+                breast_groups[breast_id] = {
+                    "breast_id": breast_id,
+                    "image_indices": [],
+                    "label": label
+                }
+
+            breast_groups[breast_id]["image_indices"].append(idx)
+
+        return list(breast_groups.values())
+
+print("\n✓ INbreastDatasetFixed defined (extracts Patient ID from File Name)")

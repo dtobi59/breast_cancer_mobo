@@ -201,8 +201,8 @@ def compute_reference_point(Y_train, offset=0.1):
     Returns:
         ref_point: (n_objs,) tensor
     """
-    worst = Y_train.max(dim=0).values  # Worst (maximum) for minimization
-    ref_point = worst + offset * worst.abs()
+    worst = Y_train.min(dim=0).values  # Worst (maximum) for minimization
+    ref_point = worst - offset * worst.abs()
     return ref_point
 
 

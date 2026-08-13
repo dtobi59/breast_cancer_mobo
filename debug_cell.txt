@@ -1,0 +1,58 @@
+# DEBUG: Inspect breast grouping issue
+print("="*80)
+print("DEBUG: BREAST GROUPING ANALYSIS")
+print("="*80)
+
+# Check what breast IDs are being created
+print("\nChecking first 10 samples:")
+for idx in range(min(10, len(inbreast_dataset.samples))):
+    sample = inbreast_dataset.samples[idx]
+    path, label, file_id, laterality, view_position, patient_id = sample
+    print(f"  [{idx}] Patient: '{patient_id}' | Laterality: '{laterality}' | View: '{view_position}' | File: {file_id}")
+
+# Check breast groups
+breast_groups = inbreast_dataset.get_breast_groups()
+print(f"\n\nBreast groups created: {len(breast_groups)}")
+
+for i, group in enumerate(breast_groups[:5]):  # Show first 5 groups
+    breast_id = group['breast_id']
+    n_images = len(group['image_indices'])
+    print(f"\nGroup {i}: {breast_id}")
+    print(f"  Number of images: {n_images}")
+    print(f"  Sample indices: {group['image_indices'][:5]}...")  # First 5 indices
+
+    # Show what files are in this group
+    if n_images < 10:
+        print(f"  Files in this group:")
+        for img_idx in group['image_indices'][:10]:
+            sample = inbreast_dataset.samples[img_idx]
+            file_id = sample[2]
+            print(f"    - {file_id}")
+
+# Check unique patient IDs
+unique_patient_ids = set()
+unique_lateralities = set()
+unique_breast_ids = set()
+
+for sample in inbreast_dataset.samples:
+    path, label, file_id, laterality, view_position, patient_id = sample
+    unique_patient_ids.add(patient_id)
+    unique_lateralities.add(laterality)
+    unique_breast_ids.add((patient_id, laterality))
+
+print(f"\n\n--- SUMMARY ---")
+print(f"Unique Patient IDs: {len(unique_patient_ids)}")
+print(f"Unique Lateralities: {len(unique_lateralities)}")
+print(f"Unique (Patient, Laterality) combinations: {len(unique_breast_ids)}")
+
+print(f"\nPatient ID samples: {list(unique_patient_ids)[:10]}")
+print(f"Laterality values: {list(unique_lateralities)}")
+
+# Check if all patient IDs are the same
+if len(unique_patient_ids) == 1:
+    print(f"\n⚠️ CRITICAL BUG: All samples have the same Patient ID!")
+    print(f"   Patient ID value: '{list(unique_patient_ids)[0]}'")
+
+if len(unique_lateralities) == 1:
+    print(f"\n⚠️ CRITICAL BUG: All samples have the same Laterality!")
+    print(f"   Laterality value: '{list(unique_lateralities)[0]}'")

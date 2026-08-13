@@ -7,9 +7,11 @@ from .datasets import (
     VinDRMammoBinaryDataset,
     INbreastDataset,
     create_breast_level_splits,
+    create_inbreast_calibration_test_splits,
     create_vindr_dataset_with_adaptation,
     create_inbreast_dataset_with_adaptation
 )
+from .inbreast_xls_loader import INbreastDatasetFromXLS, load_inbreast_from_xls
 from .augmentations import IntensityAugmentation, get_augmentation, RobustnessPerturb
 from .models import ResNet152Binary, build_resnet152
 from .training import Trainer, train_model, EarlyStopping
@@ -40,7 +42,10 @@ __all__ = [
     # Datasets
     "VinDRMammoBinaryDataset",
     "INbreastDataset",
+    "INbreastDatasetFromXLS",
+    "load_inbreast_from_xls",
     "create_breast_level_splits",
+    "create_inbreast_calibration_test_splits",
     "create_vindr_dataset_with_adaptation",
     "create_inbreast_dataset_with_adaptation",
 

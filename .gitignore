@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.claude/
+venv/
+
+# Environment variables
+.env
+
+# Datasets - DON'T push these to GitHub
+data/
+*.dicom
+*.dcm
+*.png
+*.jpg
+
+# Model checkpoints
+*.pth
+*.pt
+*.ckpt
+
+#Remove all the *.md files
+*.md
+
+# Outputs
+result/
+runs/
+wandb/
+
+# IDE
+.vscode/

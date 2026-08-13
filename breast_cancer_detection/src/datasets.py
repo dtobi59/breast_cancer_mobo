@@ -125,6 +125,123 @@ def create_breast_level_splits(dataset, train_ratio=0.8, random_state=42, strati
 
     return train_subset, val_subset
 
+def create_inbreast_calibration_test_splits(dataset,calibration_ratio=0.2,random_state=42,stratify=True):
+    """
+    Create IMAGE-LEVEL calibration/test splits for INbreast.
+
+    Patient/breast identifiers cannot be reliably recovered from the
+    available INbreast metadata, so no heuristic breast grouping is used.
+
+    Calibration:
+        Used only for Objective 4 during HPO.
+
+    Test:
+        Held out until final cross-dataset evaluation.
+
+    IMPORTANT:
+        Because verified patient identifiers are unavailable, patient-level
+        independence between calibration and test cannot be guaranteed.
+        This must be reported as a study limitation.
+    """
+
+    # ------------------------------------------------------
+    # 1. Image indices
+    # ------------------------------------------------------
+    n_images = len(dataset)
+    image_indices = np.arange(n_images)
+
+    # INbreast sample format:
+    # (path, label, file_id, laterality, view_position)
+    labels = np.array([
+        int(sample[1])
+        for sample in dataset.samples
+    ])
+
+    # ------------------------------------------------------
+    # 2. Stratified image-level split
+    # ------------------------------------------------------
+    if stratify:
+        calibration_indices, test_indices = train_test_split(
+            image_indices,
+            train_size=calibration_ratio,
+            random_state=random_state,
+            stratify=labels
+        )
+    else:
+        calibration_indices, test_indices = train_test_split(
+            image_indices,
+            train_size=calibration_ratio,
+            random_state=random_state
+        )
+
+    # ------------------------------------------------------
+    # 3. Create PyTorch subsets
+    # ------------------------------------------------------
+    calibration_subset = Subset(
+        dataset,
+        calibration_indices.tolist()
+    )
+
+    test_subset = Subset(
+        dataset,
+        test_indices.tolist()
+    )
+
+    # ------------------------------------------------------
+    # 4. Statistics
+    # ------------------------------------------------------
+    calibration_labels = labels[calibration_indices]
+    test_labels = labels[test_indices]
+
+    print("\n[INbreast IMAGE-LEVEL Calibration/Test split]")
+    print(f"  Total images: {n_images}")
+    print(
+        f"  Calibration images: {len(calibration_indices)} "
+        f"({len(calibration_indices) / n_images:.1%})"
+    )
+    print(
+        f"  Test images: {len(test_indices)} "
+        f"({len(test_indices) / n_images:.1%})"
+    )
+
+    print(
+        f"  Calibration label distribution: "
+        f"{np.bincount(calibration_labels)}"
+    )
+
+    print(
+        f"  Test label distribution: "
+        f"{np.bincount(test_labels)}"
+    )
+
+    # ------------------------------------------------------
+    # 5. Reproducibility metadata
+    # ------------------------------------------------------
+    split_info = {
+        "split_level": "image",
+        "random_state": random_state,
+        "calibration_ratio": calibration_ratio,
+        "stratify": stratify,
+
+        "n_images_total": n_images,
+        "n_images_calibration": len(calibration_indices),
+        "n_images_test": len(test_indices),
+
+        "calibration_image_indices":
+            calibration_indices.tolist(),
+
+        "test_image_indices":
+            test_indices.tolist(),
+
+        "patient_independence_guaranteed": False
+    }
+
+    return (
+        calibration_subset,
+        test_subset,
+        split_info
+    )
+
 
 class VinDRMammoBinaryDataset(Dataset):
     """
@@ -300,25 +417,38 @@ class INbreastDataset(Dataset):
             filename = os.path.basename(path)
             parts = filename.split("_")
 
-            laterality = "UNKNOWN"
-            view_position = "UNKNOWN"
+            case_id, laterality, view_position = (
+                extract_inbreast_dicom_metadata(path)
+            )
 
-            if len(parts) >= 4:
-                # parts[2] should be laterality (L/R)
-                # parts[3] should be view (CC/ML)
-                lat_part = parts[2].upper()
-                view_part = parts[3].upper()
+            # laterality = "UNKNOWN"
+            # view_position = "UNKNOWN"
 
-                if lat_part in ["L", "R", "MG"]:
-                    # Handle "MG_L_CC" format
-                    if lat_part == "MG" and len(parts) >= 5:
-                        laterality = parts[3].upper()
-                        view_position = parts[4].split(".")[0].upper()
-                    else:
-                        laterality = lat_part
-                        view_position = view_part.split(".")[0].upper()
+            # if len(parts) >= 4:
+            #     # parts[2] should be laterality (L/R)
+            #     # parts[3] should be view (CC/ML)
+            #     lat_part = parts[2].upper()
+            #     view_part = parts[3].upper()
 
-            samples.append((path, label, file_id, laterality, view_position))
+            #     if lat_part in ["L", "R", "MG"]:
+            #         # Handle "MG_L_CC" format
+            #         if lat_part == "MG" and len(parts) >= 5:
+            #             laterality = parts[3].upper()
+            #             view_position = parts[4].split(".")[0].upper()
+            #         else:
+            #             laterality = lat_part
+            #             view_position = view_part.split(".")[0].upper()
+
+            # samples.append((path, label, file_id, laterality, view_position))
+
+            samples.append((
+                path,
+                label,
+                file_id,
+                case_id,
+                laterality,
+                view_position
+            ))
 
         self.samples = samples
         print(f"[INbreast] Loaded {len(self.samples)} image-level samples")
@@ -363,39 +493,46 @@ class INbreastDataset(Dataset):
 
     def get_breast_groups(self):
         """
-        Group samples by breast for Noisy-OR aggregation.
+        Group CC/MLO images belonging to the same breast.
 
-        Note: INbreast file IDs don't directly encode patient/breast ID,
-        so we use heuristics based on consecutive file IDs and laterality.
-
-        Returns:
-            List of dicts, each containing:
-                - breast_id: (patient_group, laterality)
-                - image_indices: List of indices in this dataset
-                - label: Breast-level label
+        Breast identity is defined as:
+            (case_id, laterality)
         """
+
         breast_groups = {}
 
-        for idx, (path, label, file_id, laterality, view_pos) in enumerate(self.samples):
-            # Extract base file ID
-            try:
-                file_num = int(float(file_id))
-            except:
-                file_num = idx  # Fallback
+        for idx, sample in enumerate(self.samples):
 
-            # Group by approximate patient (every 4-8 images)
-            patient_group = file_num // 10
+            (
+                path,
+                label,
+                file_id,
+                case_id,
+                laterality,
+                view_position
+            ) = sample
 
-            breast_id = (patient_group, laterality)
+            breast_id = (case_id, laterality)
 
             if breast_id not in breast_groups:
                 breast_groups[breast_id] = {
                     "breast_id": breast_id,
+                    "patient_id": case_id,
+                    "laterality": laterality,
                     "image_indices": [],
-                    "label": label
+                    "views": [],
+                    "label": label,
                 }
 
             breast_groups[breast_id]["image_indices"].append(idx)
+            breast_groups[breast_id]["views"].append(view_position)
+
+            # Safety check: images grouped into one breast
+            # should not have conflicting labels.
+            if breast_groups[breast_id]["label"] != label:
+                raise ValueError(
+                    f"Conflicting labels for breast {breast_id}"
+                )
 
         return list(breast_groups.values())
 
@@ -549,3 +686,41 @@ def create_inbreast_dataset_with_adaptation(
     )
 
     return dataset
+
+def extract_inbreast_dicom_metadata(path):
+    import pydicom
+
+    ds = pydicom.dcmread(path, stop_before_pixels=True)
+
+    patient_id = str(getattr(ds, "PatientID", "")).strip()
+    study_uid = str(getattr(ds, "StudyInstanceUID", "")).strip()
+
+    laterality = str(
+        getattr(
+            ds,
+            "ImageLaterality",
+            getattr(ds, "Laterality", "")
+        )
+    ).strip().upper()
+
+    view_position = str(
+        getattr(ds, "ViewPosition", "")
+    ).strip().upper()
+
+    # Prefer PatientID.
+    # If unavailable, StudyInstanceUID can serve as study/case identity.
+    if patient_id:
+        case_id = patient_id
+    elif study_uid:
+        case_id = study_uid
+    else:
+        raise ValueError(
+            f"No PatientID or StudyInstanceUID found in {path}"
+        )
+
+    if laterality not in {"L", "R"}:
+        raise ValueError(
+            f"Invalid/missing laterality for {path}: {laterality}"
+        )
+
+    return case_id, laterality, view_position

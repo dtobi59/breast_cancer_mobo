@@ -13,7 +13,77 @@ from tqdm import tqdm
 from .evaluation import aggregate_breast_level_predictions, compute_metrics
 from .robustness import RobustnessTester
 
+def evaluate_image_level_predictions(
+    model,
+    dataset,
+    device,
+    batch_size=8
+):
+    """
+    Evaluate a model directly at image level.
 
+    Returns:
+        y_true: numpy array of binary labels
+        y_probs: numpy array of predicted probabilities
+    """
+
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0
+    )
+
+    model.eval()
+
+    all_labels = []
+    all_probs = []
+
+    with torch.no_grad():
+
+        for images, labels in loader:
+
+            images = images.to(
+                device,
+                non_blocking=True
+            )
+
+            logits = model(images)
+
+            # Model outputs logits because training uses
+            # BCEWithLogitsLoss
+            probabilities = torch.sigmoid(
+                logits
+            )
+
+            # Flatten safely regardless of (B,) or (B,1)
+            probabilities = (
+                probabilities
+                .view(-1)
+                .cpu()
+                .numpy()
+            )
+
+            labels = (
+                labels
+                .view(-1)
+                .cpu()
+                .numpy()
+            )
+
+            all_probs.extend(
+                probabilities.tolist()
+            )
+
+            all_labels.extend(
+                labels.tolist()
+            )
+
+    return (
+        np.asarray(all_labels),
+        np.asarray(all_probs)
+    )
+    
 class EarlyStopping:
     """
     Early stopping to stop training when monitored metric stops improving.
@@ -86,7 +156,8 @@ class Trainer:
         device,
         patience=10,
         max_epochs=100,
-        log_dir=None
+        log_dir=None,
+        inbreast_calibration_dataset=None
     ):
         """
         Args:
@@ -100,6 +171,7 @@ class Trainer:
             patience: Early stopping patience
             max_epochs: Maximum number of epochs
             log_dir: Directory for saving logs and checkpoints
+            inbreast_calibration_dataset: INbreast calibration dataset (for cross-dataset degradation)
         """
         self.model = model
         self.train_loader = train_loader
@@ -110,6 +182,7 @@ class Trainer:
         self.device = device
         self.max_epochs = max_epochs
         self.log_dir = log_dir
+        self.inbreast_calibration_dataset = inbreast_calibration_dataset
 
         self.early_stopping = EarlyStopping(patience=patience, mode="max")
         self.history = {
@@ -117,7 +190,7 @@ class Trainer:
             "val_pr_auc": [],
             "val_auroc": [],
             "val_brier": [],
-            "val_robustness": []
+            "cross_dataset_degradation": []
         }
 
     def train_one_epoch(self):
@@ -165,13 +238,79 @@ class Trainer:
 
         return metrics
 
-    def evaluate_robustness(self):
-        """Evaluate robustness degradation."""
-        tester = RobustnessTester()
-        results = tester.evaluate_robustness(
-            self.model, self.val_loader, self.device
+    def evaluate_cross_dataset_degradation(self):
+        """
+        Compute cross-dataset degradation at IMAGE LEVEL.
+
+        Objective 4:
+
+            degradation =
+                PR-AUC(VinDr validation images)
+                -
+                PR-AUC(INbreast calibration images)
+
+        Both sides are evaluated at the same unit (image level),
+        making the cross-dataset comparison consistent.
+
+        Lower degradation is better.
+        """
+
+        if self.inbreast_calibration_dataset is None:
+            return 0.0
+
+        from sklearn.metrics import (
+            average_precision_score
         )
-        return results["degradation"]
+
+        # ======================================================
+        # VinDr validation: IMAGE LEVEL
+        # ======================================================
+
+        vindr_true, vindr_probs = (
+            evaluate_image_level_predictions(
+                model=self.model,
+                dataset=self.val_dataset,
+                device=self.device
+            )
+        )
+
+        vindr_image_pr_auc = (
+            average_precision_score(
+                vindr_true,
+                vindr_probs
+            )
+        )
+
+        # ======================================================
+        # INbreast calibration: IMAGE LEVEL
+        # ======================================================
+
+        inbreast_true, inbreast_probs = (
+            evaluate_image_level_predictions(
+                model=self.model,
+                dataset=self.inbreast_calibration_dataset,
+                device=self.device
+            )
+        )
+
+        inbreast_image_pr_auc = (
+            average_precision_score(
+                inbreast_true,
+                inbreast_probs
+            )
+        )
+
+        # ======================================================
+        # Cross-dataset degradation
+        # ======================================================
+
+        degradation = (
+            vindr_image_pr_auc
+            -
+            inbreast_image_pr_auc
+        )
+
+        return degradation
 
     def train(self, verbose=True):
         """
@@ -187,27 +326,39 @@ class Trainer:
             # Validate
             val_metrics = self.validate()
 
-            # Evaluate robustness (expensive, so maybe skip some epochs)
-            if epoch % 5 == 0 or epoch == self.max_epochs - 1:
-                robustness_deg = self.evaluate_robustness()
+            # Evaluate cross-dataset degradation (expensive, so maybe skip some epochs)
+            if epoch % 2 == 0 or epoch == self.max_epochs - 1:
+                cross_dataset_deg = (self.evaluate_cross_dataset_degradation())
             else:
-                robustness_deg = 0.0
+                cross_dataset_deg = 0.0
 
             # Track history
             self.history["train_loss"].append(train_loss)
             self.history["val_pr_auc"].append(val_metrics["pr_auc"])
             self.history["val_auroc"].append(val_metrics["auroc"])
             self.history["val_brier"].append(val_metrics["brier"])
-            self.history["val_robustness"].append(robustness_deg)
+            self.history["cross_dataset_degradation"].append(cross_dataset_deg)
 
             if verbose:
-                print(
-                    f"Epoch {epoch+1}/{self.max_epochs} | "
-                    f"Loss: {train_loss:.4f} | "
-                    f"PR-AUC: {val_metrics['pr_auc']:.4f} | "
-                    f"AUROC: {val_metrics['auroc']:.4f} | "
-                    f"Brier: {val_metrics['brier']:.4f}"
-                )
+                # Show cross-dataset degradation if it was computed this epoch
+                if epoch % 2 == 0 or epoch == self.max_epochs - 1:
+                    print(
+                        f"Epoch {epoch+1}/{self.max_epochs} | "
+                        f"Loss: {train_loss:.4f} | "
+                        f"PR-AUC: {val_metrics['pr_auc']:.4f} | "
+                        f"AUROC: {val_metrics['auroc']:.4f} | "
+                        f"Brier: {val_metrics['brier']:.4f} | "
+                        f"Cross-dataset: {cross_dataset_deg:.4f}"
+                    )
+                else:
+                    # Skip epochs don't compute degradation, so don't show it
+                    print(
+                        f"Epoch {epoch+1}/{self.max_epochs} | "
+                        f"Loss: {train_loss:.4f} | "
+                        f"PR-AUC: {val_metrics['pr_auc']:.4f} | "
+                        f"AUROC: {val_metrics['auroc']:.4f} | "
+                        f"Brier: {val_metrics['brier']:.4f}"
+                    )
 
             # Early stopping check
             if self.early_stopping(val_metrics["pr_auc"], self.model):
@@ -220,13 +371,13 @@ class Trainer:
 
         # Final evaluation
         final_metrics = self.validate()
-        final_robustness = self.evaluate_robustness()
+        final_cross_dataset_deg = (self.evaluate_cross_dataset_degradation())
 
         return {
             "pr_auc": final_metrics["pr_auc"],
             "auroc": final_metrics["auroc"],
             "brier": final_metrics["brier"],
-            "robustness_degradation": final_robustness,
+            "cross_dataset_degradation": final_cross_dataset_deg,
             "best_epoch": len(self.history["val_pr_auc"]) - self.early_stopping.patience
         }
 
@@ -258,7 +409,8 @@ def train_model(
     patience=10,
     max_epochs=100,
     pos_weight=None,
-    verbose=True
+    verbose=True,
+    inbreast_calibration_dataset=None
 ):
     """
     Convenience function to train a model.
@@ -275,6 +427,7 @@ def train_model(
         max_epochs: Maximum epochs
         pos_weight: Positive class weight for BCEWithLogitsLoss
         verbose: Print progress
+        inbreast_calibration_dataset: INbreast calibration dataset (for cross-dataset degradation)
 
     Returns:
         Trained model and metrics dictionary
@@ -302,7 +455,8 @@ def train_model(
         criterion=criterion,
         device=device,
         patience=patience,
-        max_epochs=max_epochs
+        max_epochs=max_epochs,
+        inbreast_calibration_dataset=inbreast_calibration_dataset
     )
 
     # Train

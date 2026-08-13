@@ -81,9 +81,9 @@ class ResNet152Binary(nn.Module):
         for name, param in backbone_params:
             param.requires_grad = False
 
-        # Unfreeze the last n_unfreeze parameters
-        for name, param in backbone_params[-n_unfreeze:]:
-            param.requires_grad = True
+        if n_unfreeze > 0:
+            for name, param in backbone_params[-n_unfreeze:]:
+                param.requires_grad = True
 
         # Always keep final FC layer trainable
         for param in self.backbone.fc.parameters():

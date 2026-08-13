@@ -7,7 +7,12 @@
       "Bash(pip install:*)",
       "Bash(python3:*)",
       "Bash(ls:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(dir \"C:\\Users\\HP\\Downloads\\New Project\" /b)",
+      "Bash(dir:*)",
+      "Bash(del \"C:\\Users\\HP\\Downloads\\New Project\\insert_distribution_cell.py\")",
+      "Bash(cd C:\\\\Users\\\\HP\\\\Downloads\\\\New Project:*)",
+      "mcp__scholar-gateway__semanticSearch"
     ]
   }
 }

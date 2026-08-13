@@ -58,7 +58,8 @@ def train_and_evaluate(
     patience=10,
     max_epochs=100,
     pos_weight=None,
-    random_seed=42
+    random_seed=42,
+    inbreast_calibration_dataset=None
 ):
     """
     Train model with given hyperparameters and evaluate.
@@ -79,13 +80,14 @@ def train_and_evaluate(
         max_epochs: Maximum training epochs
         pos_weight: Positive class weight for loss
         random_seed: Random seed for reproducibility
+        inbreast_calibration_dataset: INbreast calibration dataset (for cross-dataset degradation)
 
     Returns:
         Dictionary of metrics:
             - pr_auc: Precision-recall AUC
             - auroc: ROC AUC
             - brier: Brier score
-            - robustness_degradation: Robustness degradation metric
+            - cross_dataset_degradation: Cross-dataset degradation metric
             - best_epoch: Epoch with best validation PR-AUC
     """
     # Set random seed
@@ -160,7 +162,8 @@ def train_and_evaluate(
         patience=patience,
         max_epochs=max_epochs,
         pos_weight=pos_weight,
-        verbose=False  # Suppress training output during optimization
+        verbose=True,  # Show training progress
+        inbreast_calibration_dataset=inbreast_calibration_dataset
     )
 
     return metrics
@@ -175,7 +178,8 @@ def create_evaluation_function(
     patience=10,
     max_epochs=100,
     pos_weight=None,
-    random_seed=42
+    random_seed=42,
+    inbreast_calibration_dataset=None
 ):
     """
     Factory function to create a configured evaluation function.
@@ -194,6 +198,7 @@ def create_evaluation_function(
         max_epochs: Maximum training epochs
         pos_weight: Positive class weight for loss
         random_seed: Random seed
+        inbreast_calibration_dataset: INbreast calibration dataset (for cross-dataset degradation)
 
     Returns:
         Function with signature: evaluate_fn(hyperparams) -> metrics_dict
@@ -210,7 +215,8 @@ def create_evaluation_function(
             patience=patience,
             max_epochs=max_epochs,
             pos_weight=pos_weight,
-            random_seed=random_seed
+            random_seed=random_seed,
+            inbreast_calibration_dataset=inbreast_calibration_dataset
         )
 
     return evaluate_fn

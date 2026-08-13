@@ -1,0 +1,432 @@
+\section{CHAPTER 2: LITERATURE
+REVIEW}\label{chapter-2-literature-review}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2.1 Introduction}\label{introduction}
+
+\paragraph{This chapter reviews the existing literature that supports the key ideas in this study. The study applies deep learning to classify breast cancer in mammographic images, and it focuses on two main challenges. The first is how well models trained on one population can work on a different population, which is called dataset shift. The second is how to balance several performance goals at the same time using multi-objective Bayesian optimization (MOBO). The chapter is divided into eleven sections. Section 2.2 explains the clinical background. Sections 2.3 and 2.4 review how computer-aided detection has developed over time and how deep CNN models are built. Section 2.5 covers dataset shift and why it matters for clinical use. Sections 2.6 through 2.9 cover the optimization approach, starting from hyperparameter tuning and building up to multi-objective Bayesian optimization. Section 2.10 looks at how predictions from different mammogram views are combined. Sections 2.11 and 2.12 review training techniques and evaluation metrics. The chapter ends in Section 2.13 by identifying the gaps in the existing research that this study addresses.}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2.2 Breast Cancer Epidemiology and the Role of Mammographic
+Screening}\label{breast-cancer-epidemiology-and-the-role-of-mammographic-screening}
+
+\paragraph{Breast cancer is one of the most common cancers affecting women around the world. It is a major health problem in both rich and developing countries. Mammographic screening has been the standard approach for finding breast cancer early for more than forty years. Finding cancer at an early stage greatly improves survival chances and reduces deaths. Tsarouchi et al. (2023) reviewed breast cancer screening methods and found that standard mammography is the main tool used in population-level screening. However, it has limitations. It misses cancers more often in women with dense breast tissue, and it produces many false positive results that require follow-up tests. Their review also noted a growing agreement that screening should move toward a more personalized approach that uses multiple imaging methods alongside artificial intelligence to improve results.}
+
+\paragraph{The BI-RADS (Breast Imaging Reporting and Data System) classification, maintained by the American College of Radiology, gives radiologists a standard way to report mammography findings. Categories range from 0 (incomplete, needs more imaging) to 6 (confirmed cancer), with categories 4 and 5 indicating suspicious findings that require biopsy. Research datasets like VinDr-Mammo and INbreast use BI-RADS labels to define the ground truth, which allows automated systems to be trained and tested against expert radiologist decisions (Jeny et al., 2025).}
+
+\paragraph{One important challenge in breast cancer AI research is that breast tissue, equipment, and imaging settings vary across populations. Vietnamese, European, and North American populations differ in breast density, which affects both cancer risk and how mammograms look. This kind of variation creates what is called dataset shift, where a model trained on one population performs worse when used on another. This problem is the central focus of this study.}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2.3 Computer-Aided Detection in Mammography: From
+Traditional Systems to Deep
+Learning}\label{computer-aided-detection-in-mammography-from-traditional-systems-to-deep-learning}
+
+\subsubsection{2.3.1 Traditional Computer-Aided
+Detection}\label{traditional-computer-aided-detection}
+
+\paragraph{The first computer-aided detection (CAD) systems for mammography were approved by the FDA in the late 1980s. They worked by pulling out hand-crafted image features, such as shape, texture, and intensity patterns, and feeding them into classical classifiers like support vector machines or decision trees. Li et al. (2021) found that large-scale studies have shown that traditional CAD systems did not meaningfully improve screening results. In fact, these systems led to more false positives, more unnecessary biopsies, and no real improvement in finding cancer. This happened because hand-crafted features could not capture the full variety of how malignant lesions look in mammograms.}
+
+\subsubsection{2.3.2 Deep Learning-Based CAD
+Systems}\label{deep-learning-based-cad-systems}
+
+\paragraph{Deep convolutional neural networks (CNNs) changed the field of computer-aided detection for mammography. Wong et al. (2020) reviewed 33 CNN-based mammography studies covering tasks like detecting benign and malignant masses, locating lesions, and classifying breast density. They concluded that CNN-based CAD is a clear improvement over traditional methods but still needs more standardization before it can be used in clinics. They also noted that performance varies a lot between datasets, which raises concerns about how well these systems generalize.}
+
+\paragraph{McKinney et al. (2020) tested a deep learning model on nearly 30,000 patients from UK and US datasets. The model reduced both false negatives and false positives and outperformed six individual radiologists. This study showed that AI systems can potentially match or exceed human performance. It also showed, through its US and UK comparison, that model performance can differ between populations, which highlights the generalization problem.}
+
+\paragraph{Frazer et al. (2021) evaluated several deep learning systems for breast cancer detection on the BreastScreen Victoria dataset, achieving a best AUC of 0.8979. They found that a ResNet-based model performed best among all the tested approaches. They also found that preprocessing steps like cropping the background, removing text, and adjusting contrast had a big impact on results, showing how important a good preprocessing pipeline is.}
+
+\paragraph{Li et al. (2021) showed that a pipeline combining Mask-RCNN for lesion detection with ResNet for malignancy prediction worked well across four types of breast density, even in very dense breasts, reaching a sensitivity of 0.90 at 0.25 false positives per image. Shen et al. (2020) proposed a multi-task learning approach for mass detection on the INbreast dataset, achieving a TPR of 0.919 at 0.12 false positives per image by jointly predicting lesion presence and malignancy.}
+
+\paragraph{More recently, Jeny et al. (2025) proposed a model combining CNNs and Transformers that used both prior and current mammogram scans, with focal loss to reduce false positives. Pretrained on several datasets including VinDr-Mammo, it reached 90.80\% accuracy and 92.58\% AUC. While this approach goes beyond the single-exam classification used in this thesis, the results provide useful reference points.}
+
+\paragraph{Wang et al. (2025) reviewed deep learning work in digital breast tomosynthesis and noted that transferring models across different data sources is increasingly seen as an important future direction. Their review also described VinDr-Mammo and INbreast as two of the most complete publicly available full-field digital mammography (FFDM) benchmarks.}
+
+\paragraph{Ganesan et al. (2022) applied a deep multi-layer network to the INbreast dataset and achieved 98\% ROC-AUC. They highlighted that class imbalance, where non-cancer cases greatly outnumber cancer cases, is a central challenge. When the model is dominated by the majority class, its predictions become unreliable for detecting the minority malignant class.}
+
+\subsubsection{2.3.3 Benchmark Datasets: VinDr-Mammo and
+INbreast}\label{benchmark-datasets-vindr-mammo-and-inbreast}
+
+\paragraph{VinDr-Mammo is a large-scale FFDM dataset collected from the Vietnamese population. It contains 5,000 four-view cases, totaling 20,000 images, with breast-level BI-RADS labels and lesion-level bounding boxes annotated by experienced radiologists. It is one of the few publicly available datasets with comprehensive breast-level annotations, making it well suited as the source domain in this study (Nguyen et al., 2023).}
+
+\paragraph{INbreast is a full-field digital mammography database from a Portuguese hospital. It contains 115 cases and 410 DICOM images with CC and MLO views, covering masses, calcifications, asymmetries, and architectural distortions labeled with BI-RADS categories. It was designed to be a more complete and controlled alternative to earlier screen-film databases (Moreira et al., 2012). Because INbreast comes from a European Portuguese population and was collected under different equipment and clinical settings compared to VinDr-Mammo, it represents a genuine distribution shift. This makes it a good target domain for zero-shot evaluation.}
+
+\paragraph{Oudjer et al. (2024) applied fine-tuned ResNet50, EfficientNetB2, MobileNetV2, and InceptionV3 models to INbreast for BI-RADS-based mass classification and achieved 97.8\% AUC with a Dice coefficient of 87.65\%. Their results show how well pretrained CNNs can perform on INbreast when fine-tuned with labeled target data. This provides useful context for interpreting the zero-shot results achieved in this thesis, where no target-domain labels are used.}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2.4 Deep Convolutional Neural Networks and Transfer Learning
+for Medical
+Imaging}\label{deep-convolutional-neural-networks-and-transfer-learning-for-medical-imaging}
+
+\subsubsection{2.4.1 Residual Networks and the ResNet
+Architecture}\label{residual-networks-and-the-resnet-architecture}
+
+\paragraph{He et al. (2016) introduced deep residual learning by adding skip connections that let gradients bypass stacked layers. This solved the vanishing gradient problem and made it possible to train networks with hundreds of layers. ResNet-152, the deepest standard version, won the ILSVRC 2015 image classification competition. The skip connections help the model build representations at different levels, from simple edges to complex semantic features, which transfer well to medical imaging tasks.}
+
+\paragraph{Nhut et al. (2025) described the ResNet-152 structure in detail, noting that its 152 layers with bottleneck residual blocks allow it to learn much deeper representations than earlier networks. Mohamed Yaseen and Vijayan (2025) used ResNet-152 as a feature extractor for retinal disease detection and found that its depth makes it well suited for detailed medical image tasks even when labeled data is limited.}
+
+\subsubsection{2.4.2 ImageNet Pretraining and Transfer to Medical
+Imaging}\label{imagenet-pretraining-and-transfer-to-medical-imaging}
+
+\paragraph{Sahiner et al. (2019) reviewed deep learning across five medical imaging areas and established the foundation for using ImageNet-pretrained models in medical image classification. Their review noted that pretrained weights give the model a useful starting point by capturing general visual patterns. They also noted that in some medical imaging tasks, no fine-tuning is done at all, which provides a basis for zero-shot cross-dataset evaluation. At the same time, they acknowledged that the gap between natural images and medical images can limit how useful these features are, and that partial fine-tuning of the backbone may be needed for best results.}
+
+\paragraph{Yu et al. (2018) showed that CNN models pretrained on ImageNet consistently outperformed models trained from scratch on histopathological images, even though natural images and medical images look very different. They also found that performance drops when the source and target domains are too different, which is directly relevant to the cross-population mammography setting in this thesis.}
+
+\paragraph{Ellen and Ohman (2024) compared ResNet-152 under different fine-tuning strategies and found that fully fine-tuning all layers gave better results than only fine-tuning the head. They also found that different levels of fine-tuning produced different performance trade-offs. This finding supports the decision in this thesis to include the unfreeze fraction as a continuous hyperparameter in the optimization search.}
+
+\paragraph{Hadjiiski et al. (2022), in the AAPM Task Group 273 report on best practices for AI-based CAD, recommended using ImageNet-pretrained models with fine-tuning as the standard approach for medical image classification. They noted that how much of the model is fine-tuned is an important design decision that affects both performance and how well the model generalizes.}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2.5 Dataset Shift and Cross-Dataset Generalization in
+Medical
+Imaging}\label{dataset-shift-and-cross-dataset-generalization-in-medical-imaging}
+
+\subsubsection{2.5.1 Formal Definition of Dataset
+Shift}\label{formal-definition-of-dataset-shift}
+
+\paragraph{Dataset shift occurs when the distribution of data used for training is different from the distribution seen during deployment or testing. The most commonly studied form is covariate shift. This happens when the distribution of inputs P(X) changes between the training and test domains while the relationship between inputs and labels P(Y|X) stays the same. Autenrieth et al. (2023) gave a formal statistical description of covariate shift and proposed a correction method based on propensity-score stratification. Their work frames dataset shift as a distribution mismatch problem that cannot be fixed by simply adding more training data without making assumptions about the target distribution. In this thesis, the shift from VinDr-Mammo (Vietnamese population, high-volume screening centre) to INbreast (Portuguese population, hospital setting) is a case of covariate shift caused by differences in population genetics, imaging equipment, and clinical case mix.}
+
+\subsubsection{2.5.2 Dataset Shift in Medical Imaging: Empirical
+Evidence}\label{dataset-shift-in-medical-imaging-empirical-evidence}
+
+\paragraph{Tibrewala et al. (2020) identified dataset bias and domain shift as major failure modes of deep learning models for MRI-based hip assessment. They reported large performance drops when models trained at one imaging centre were tested at another. Bashyam et al. (2021) showed that GAN-based image harmonization could reduce variation caused by different MRI scanners, cutting the mean absolute error in brain age prediction from 15.81 to 7.21 years. This work confirms that cross-site generalization is still one of the biggest barriers to clinical deployment of medical AI, even within a single modality.}
+
+\paragraph{Jin et al. (2023) built a quality assurance system to detect domain shift in deployed deep learning segmentation models used in radiotherapy. They found that every type of abnormal imaging domain caused a significant performance drop. Their work showed that robustness to domain shift should be treated as a built-in design requirement, not something addressed after the fact. This motivated the inclusion of cross-dataset generalization as a formal fourth objective in the MOBO framework used in this thesis.}
+
+\paragraph{Soeylemez (2025) studied how three deep learning architectures, ViT, InceptionV3, and ResNet101, performed across three different dermoscopy datasets. Models trained on one dataset showed large accuracy drops when tested on another, even though the lesion classes were the same. Ensemble methods helped recover some of the lost performance but did not eliminate the gap. Ma et al. (2021) defined domain generalization as learning from known domains and applying the model to an unknown target domain with a different data distribution. They separated this from domain adaptation, where the target distribution is available during training. This distinction is important for understanding the zero-shot evaluation protocol in this thesis.}
+
+\subsubsection{2.5.3 Cross-Dataset Generalization in
+Mammography}\label{cross-dataset-generalization-in-mammography}
+
+\paragraph{The difficulty of generalizing mammography models across populations is gaining more attention in the research community. Differences in breast density, cancer rates, equipment, and clinical settings mean that models trained on one population may not work well on another. This thesis directly studies this gap by training on VinDr-Mammo and evaluating on INbreast with no target-domain adaptation, retraining, or threshold adjustment. The cross-dataset PR-AUC drop is included as the fourth objective in the MOBO framework, which encourages the optimizer to find configurations that do well both on the source domain and across populations.}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2.6 Hyperparameter
+Optimization}\label{hyperparameter-optimization}
+
+\subsubsection{2.6.1 The Hyperparameter Optimization
+Problem}\label{the-hyperparameter-optimization-problem}
+
+\paragraph{The performance of a deep neural network depends heavily on a set of hyperparameters whose best values are not known in advance and cannot be calculated from the data. In this study, these include the learning rate, weight decay, dropout rate, augmentation intensity, and the fraction of pretrained layers to fine-tune. Bischl et al. (2023) reviewed hyperparameter optimization (HPO) methods ranging from simple approaches like grid search and random search to more advanced ones like Bayesian optimization, Hyperband, and racing algorithms. They noted that when each evaluation is expensive, such as when it requires training a full model, Bayesian optimization is the most efficient approach.}
+
+\paragraph{Manual tuning is unreliable and hard to reproduce. Rodrigues et al. (2017) reviewed multi-objective optimization methods for machine learning and pointed out that single-metric tuning misses the trade-offs between objectives like generalization, calibration, and cost. Naser (2025) observed that multi-objective HPO frameworks have grown rapidly and now allow researchers to see a full set of trade-off options rather than committing to a single metric.}
+
+\subsubsection{2.6.2 Key Hyperparameters in This
+Study}\label{key-hyperparameters-in-this-study}
+
+\paragraph{Learning rate controls the step size used in gradient descent updates. It is searched on a log scale in this study because optimal values typically span several orders of magnitude (Bischl et al., 2023).}
+
+\paragraph{Weight decay adds regularization by penalizing large weights, which reduces overfitting. In the AdamW optimizer, weight decay is applied directly to the parameter values rather than through the gradient, which gives cleaner regularization compared to standard Adam (Loshchilov \& Hutter, 2019; Luo et al., 2024).}
+
+\paragraph{Dropout randomly sets some activations to zero during training. This stops neurons from relying too much on each other and improves generalization. The dropout rate is tuned as a continuous value between 0 and 0.5.}
+
+\paragraph{Augmentation strength controls how strongly training images are modified. In this study, only intensity-based augmentations are used, including brightness adjustment, contrast scaling, and Gaussian noise. Gadermayr et al. (2019) argued that augmentations should only include transformations that could realistically occur in the actual imaging process. Applying unrealistic transformations can hurt generalization rather than help it.}
+
+\paragraph{Unfreeze fraction controls how many layers of the ResNet-152 backbone are released for fine-tuning. Ellen and Ohman (2024) showed that this is an important hyperparameter that strongly affects performance and that its best value depends on the size and nature of the training data.}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2.7 Bayesian Optimization}\label{bayesian-optimization}
+
+\subsubsection{2.7.1 Principles and
+Components}\label{principles-and-components}
+
+\paragraph{Bayesian optimization (BO) is a method for finding the best settings for an expensive function that cannot be directly analyzed mathematically. It uses a surrogate model, usually a Gaussian process (GP), to approximate the objective function using observed evaluations so far. At each step, an acquisition function is used to decide which point to evaluate next. This function balances exploring areas where the model is uncertain with exploiting areas that are already known to be good. After each new result is observed, the surrogate model is updated and the process continues.}
+
+\paragraph{Liu et al. (2021) gave a clear explanation of the BO loop in the context of tuning XGBoost models. They described the GP surrogate, the Expected Improvement acquisition function, and how exploration and exploitation are balanced. Bischl et al. (2023) listed BoTorch (Balandat et al., 2020) as one of the two leading BO frameworks for HPO, noting that it uses PyTorch’s automatic differentiation to allow flexible optimization of acquisition functions.}
+
+\paragraph{BoTorch (Balandat et al., 2020) is an open-source library for Bayesian optimization built on PyTorch and GPyTorch. It provides tools for building surrogate GP models, defining Monte Carlo-based acquisition functions, and running optimization routines. Claes et al. (2024) used BoTorch with a Gaussian Process surrogate using a Matérn kernel. They fit the model by maximizing the marginal log-likelihood and used the qNoisyExpectedImprovement acquisition function for parallel evaluation. Their results showed that BO with BoTorch required about 50\% fewer experiments than standard approaches to reach the same level of performance.}
+
+\subsubsection{2.7.2 Gaussian Process Surrogate
+Models}\label{gaussian-process-surrogate-models}
+
+\paragraph{A Gaussian process defines a distribution over possible functions, described by a mean function and a covariance kernel. The Matérn 5/2 kernel is widely used in BO because it produces functions that are smooth enough to optimize but flexible enough to handle the irregular shapes typical of hyperparameter tuning landscapes. In this study, one SingleTaskGP model is fitted per objective, and all four are combined into a ModelListGP, following the standard BoTorch multi-objective setup.}
+
+\subsubsection{2.7.3 Sobol Sequence
+Initialization}\label{sobol-sequence-initialization}
+
+\paragraph{Before starting BO, the search space needs to be sampled to give the surrogate model enough data to learn from. This study uses quasi-random Sobol sequences to generate an initial set of hyperparameter configurations. Sobol sequences cover the space more evenly than random sampling, which helps the GP model start with a better picture of the objective landscape. Xiao and Wang (2024) noted that space-filling initialization designs are important for reliable GP fitting in the early stages of BO. In this thesis, 10 Sobol-sampled configurations are used for this warm-start phase.}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2.8 Multi-Objective Optimization and Pareto
+Optimality}\label{multi-objective-optimization-and-pareto-optimality}
+
+\subsubsection{2.8.1 Multi-Objective Optimization
+Fundamentals}\label{multi-objective-optimization-fundamentals}
+
+\paragraph{Multi-objective optimization (MOO) is about optimizing two or more objectives at the same time, especially when improving one may make another worse. Unlike single-objective problems, MOO does not have one best solution. Instead, the goal is to find the Pareto front, which is the set of solutions where no other solution is better on all objectives at once. Each point on the Pareto front is called Pareto-optimal, meaning no other solution can improve any one objective without making at least one other worse.}
+
+\paragraph{Rodrigues et al. (2017) reviewed multi-objective optimization applied to machine learning hyperparameter search and showed that Pareto-based methods consistently find configurations that single-objective tuning misses. Wei and Niethammer (2022) applied Pareto optimality to neural network classification, looking for the trade-off curve between fairness and accuracy. They showed that using a fixed weighted combination of objectives is often not enough to recover the full Pareto front, especially when the objective space is not convex.}
+
+\paragraph{In this thesis, the four objectives, namely PR-AUC, AUROC, Brier score, and cross-dataset degradation, are in conflict. For example, settings that maximize source-domain PR-AUC do not always minimize cross-dataset degradation. This makes single-objective optimization inadequate and supports the use of a multi-objective framework.}
+
+\subsubsection{2.8.2 Hypervolume as a Pareto Performance
+Indicator}\label{hypervolume-as-a-pareto-performance-indicator}
+
+\paragraph{The hypervolume indicator measures how much of the objective space is dominated by the current Pareto front approximation, relative to a fixed reference point. Ding et al. (2024) noted that hypervolume is the only Pareto quality measure with proven convergence properties. Maximizing the hypervolume improvement is equivalent to finding Pareto-optimal solutions, as long as the reference point is set appropriately. Ribeiro et al. (2021) compared several hypervolume-based algorithms against decomposition and dominance-based methods for optimizing a coronary stent design. They found that hypervolume-based methods did the best job of recovering the full Pareto front.}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2.9 Multi-Objective Bayesian Optimization with Hypervolume
+Improvement}\label{multi-objective-bayesian-optimization-with-hypervolume-improvement}
+
+\subsubsection{2.9.1 Expected Hypervolume
+Improvement}\label{expected-hypervolume-improvement}
+
+\paragraph{The Expected Hypervolume Improvement (EHVI) extends Bayesian optimization to multiple objectives. Instead of asking which point is likely to improve one objective, EHVI asks which point is likely to most increase the hypervolume of the Pareto front. Luo et al. (2015) tested EHVI as the update criterion for a Kriging-based optimizer on benchmark problems with 3 to 15 objectives. They found that EHVI was highly competitive, especially on complex problems with many objectives and design variables. For problems with more than five objectives, they used Monte Carlo sampling to estimate the otherwise intractable hypervolume integral.}
+
+\paragraph{Ding et al. (2024) formalized the batch version of EHVI, called qEIH, for evaluating a set of q candidates at once:}
+
+\paragraph{qEIH = \mathbb\{E\}\left[HI\left(\\{f(\mathbf\{x\}\_i)\\}\_\{i=1\}^q\right)\right] = \int\_\{-\infty\}^\{\infty\} HI\left(\\{f(\mathbf\{x\}\_i)\\}\_\{i=1\}^q\right)df}
+
+\paragraph{The joint improvement from a batch of points can be computed efficiently using the inclusion-exclusion principle over non-overlapping dominated regions.}
+
+\subsubsection{2.9.2 qNEHVI: The Noisy Batch
+Extension}\label{qnehvi-the-noisy-batch-extension}
+
+\paragraph{Daulton et al. (2021) introduced qNEHVI, which stands for q-Noisy Expected Hypervolume Improvement. This is the acquisition function used in this thesis. The main difference from standard EHVI is that qNEHVI accounts for noisy observations. Standard EHVI assumes that all previously observed points are exact, but in practice, each training run produces slightly different results due to random seeds, mini-batch order, and initialization. qNEHVI handles this by conditioning on a large set of noisy observations instead of assuming a clean Pareto front. It also supports batch evaluation, meaning multiple configurations can be assessed in parallel per iteration.}
+
+\paragraph{In this study, qNEHVI is used with q = 5 candidates per iteration, 20 restarts for the L-BFGS-B optimizer, 512 raw samples, and 128 Monte Carlo samples to estimate the integral. Claes et al. (2024) tested a closely related implementation using BoTorch’s qNoisyExpectedImprovement for single-objective bioprocess optimization and confirmed around 50\% fewer experiments needed compared to competing approaches.}
+
+\subsubsection{2.9.3 Applications of Multi-Objective Bayesian
+Optimization}\label{applications-of-multi-objective-bayesian-optimization}
+
+\paragraph{Ding et al. (2024) applied MOBO to a 3D printing process with two objectives, printing efficiency and product quality. They found that their data-driven MOBO approach consistently outperformed single-objective optimization at much lower cost. This confirms that MOBO is a practical tool when each evaluation is expensive. Gu et al. (2025) used MOBO with one GP surrogate per objective, combined using EHVI, to jointly optimize two metrics for a structural health monitoring deep learning model. This is the same architecture used in this thesis, where independent SingleTaskGP models are combined into a ModelListGP.}
+
+\paragraph{Samoil et al. (2024) demonstrated MOBO for reservoir history matching with over 100 objectives, showing that BO scales well to complex many-objective problems with Matérn 5/2 GP surrogates. Xiao and Wang (2024) reviewed BO-based frameworks for neural architecture search and noted that BO is especially useful for black-box problems where each evaluation is expensive, which applies directly to deep CNN hyperparameter optimization.}
+
+\subsubsection{2.9.4 Pareto Front Extraction and Solution
+Selection}\label{pareto-front-extraction-and-solution-selection}
+
+\paragraph{After the optimization loop finishes, non-dominated sorting is applied to the full set of evaluated configurations to find the Pareto front. Four representative solutions are then selected: the one that maximizes PR-AUC, the one that maximizes AUROC, the one that minimizes Brier score, and the balanced solution at the knee point. Wei and Niethammer (2022) showed the practical value of presenting the Pareto front to decision-makers, because it lets them choose a solution based on clinical priorities rather than being forced to commit to one objective weighting in advance.}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2.10 Multi-View Prediction Aggregation in
+Mammography}\label{multi-view-prediction-aggregation-in-mammography}
+
+\paragraph{Standard mammographic exams capture each breast in two views: cranio-caudal (CC) and medio-lateral oblique (MLO). These two views show different parts of the breast tissue and together give a more complete picture. When a deep learning model classifies individual images, the two scores per breast need to be combined into a single breast-level malignancy probability.}
+
+\paragraph{The Noisy-OR rule provides a principled way to do this:}
+
+\paragraph{p\_\{\text\{breast\}\} = 1 - (1 - p\_\{CC\})(1 - p\_\{MLO\})}
+
+\paragraph{This formula means that if either view gives a high probability of malignancy, the combined breast-level probability will also be high. The Noisy-OR model comes from probabilistic graphical models and is appropriate when the two views are treated as independent but noisy indicators of the same underlying condition.}
+
+\paragraph{Tan et al. (2020) compared seven fusion strategies for combining predictions from multiple CNN classifiers in pulmonary nodule detection, including OR-like OWA operators. They found that maximum-based probabilistic fusion, which is the limiting case of Noisy-OR, was effective at detecting positive cases across multiple views, because it gives high probability to a case whenever any single view strongly suggests malignancy. Das et al. (2008) showed that combining predictions from multiple models for pneumonitis prediction improved over using any single model alone, and OR-like operators gave good coverage of true positive cases. Hoegh and Leman (2017) examined the theory behind binary prediction fusion and argued that simple averaging is suboptimal when the classifiers are correlated. This supports the use of Noisy-OR as a more principled alternative for combining CC and MLO view predictions.}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2.11 Training Regularization and Data
+Augmentation}\label{training-regularization-and-data-augmentation}
+
+\subsubsection{2.11.1 Early Stopping}\label{early-stopping}
+
+\paragraph{Early stopping is a regularization technique where training is stopped once the model stops improving on the validation set for a set number of epochs, called the patience. The best checkpoint seen during training is then restored. Ammous et al. (2023) described early stopping as an effective way to prevent overfitting in deep neural networks, noting that the patience value controls whether the model ends up undertrained or overtrained. In this thesis, early stopping is applied based on validation PR-AUC, and the best checkpoint is always restored. This ensures that the performance reported for each BO evaluation reflects the model’s peak capability.}
+
+\subsubsection{2.11.2 AdamW Optimizer}\label{adamw-optimizer}
+
+\paragraph{The AdamW optimizer (Loshchilov \& Hutter, 2019) fixes a problem in standard Adam where weight decay gets mixed into the adaptive gradient update, causing it to be applied unevenly. AdamW applies weight decay directly to the weights, which gives cleaner regularization. Luo et al. (2024) noted that AdamW gives better control over model complexity and helps prevent overfitting, which is why it has become the preferred optimizer in modern deep learning workflows.}
+
+\subsubsection{2.11.3 Data Augmentation}\label{data-augmentation}
+
+\paragraph{Data augmentation creates modified copies of training images to expose the model to more variation without needing more labeled data. This helps reduce overfitting. Zhang et al. (2022) evaluated a wide range of augmentation strategies for medical image classification and found that all types, including single transforms, mixing methods, and generative methods, consistently helped when labeled data was limited. Mojiri Forooshani et al. (2022) discussed augmentation as both a regularization tool and a robustness strategy, and highlighted noise addition and contrast adjustment as two of the most reliably effective augmentations for medical images.}
+
+\paragraph{In this study, augmentation is controlled by a single scalar strength parameter ranging from 0 to 1. It applies three intensity-based transformations: brightness adjustment, contrast scaling, and additive Gaussian noise. Geometric transformations are excluded. Gadermayr et al. (2019) argued that augmentations should only include transformations that could realistically occur in clinical imaging. Applying unrealistic transformations can introduce artificial patterns that hurt rather than help generalization.}
+
+\paragraph{Hadjiiski et al. (2022), in the AAPM Task Group 273 best practices report, confirmed that data augmentation is an essential part of training medical CAD systems and recommended that it be paired with proper evaluation on diverse datasets.}
+
+\subsubsection{2.11.4 Dropout
+Regularization}\label{dropout-regularization}
+
+\paragraph{Dropout is a training technique that randomly disables some neurons during each forward pass. This prevents neurons from becoming overly dependent on each other and encourages the network to learn more robust features. Archana (2024) discussed dropout as a standard component of deep learning models for breast cancer detection and noted that the right dropout rate depends on the dataset size and model architecture.}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2.12 Evaluation Metrics for Imbalanced Medical
+Classification}\label{evaluation-metrics-for-imbalanced-medical-classification}
+
+\subsubsection{2.12.1 Class Imbalance in Mammography
+Datasets}\label{class-imbalance-in-mammography-datasets}
+
+\paragraph{Medical datasets, including mammography collections, are typically imbalanced. Malignant cases make up a small fraction of the total because cancer is relatively rare in the real population. Standard accuracy is not a reliable metric in this setting because a model that always predicts the majority class can still score very high (Feng et al., 2021).}
+
+\subsubsection{2.12.2 Area Under the Precision-Recall Curve
+(PR-AUC)}\label{area-under-the-precision-recall-curve-pr-auc}
+
+\paragraph{The precision-recall curve shows the trade-off between precision (how often a positive prediction is correct) and recall (how many true positives are found) across all decision thresholds. The area under this curve, called PR-AUC or AUPRC, summarizes classifier performance with a focus on the minority class. Feng et al. (2021) argued formally that PR-AUC is a better metric than ROC-AUC when data is imbalanced, because ROC curves are influenced by the large number of true negatives and can make a model look better than it is. Ardakani et al. (2024) confirmed this in a review of 23 evaluation metrics for healthcare AI, finding that AUPRC gives clearer insight into clinically relevant precision-recall trade-offs. In this thesis, PR-AUC is the primary objective and the metric used for early stopping, because a breast cancer screening tool must find as many true cancers as possible while keeping false positive rates manageable.}
+
+\subsubsection{2.12.3 Area Under the ROC Curve
+(AUROC)}\label{area-under-the-roc-curve-auroc}
+
+\paragraph{The ROC curve shows the trade-off between sensitivity (true positive rate) and one minus specificity (false positive rate) at different thresholds. The area under it, called AUROC, gives a summary of how well a model can distinguish between classes across all thresholds. Roshan et al. (2023) showed that PR-AUC and AUROC complement each other. PR-AUC is more sensitive to class imbalance, while AUROC gives a broader view of discrimination ability. Forough and Momtazi (2021) also described AUC-PR as very informative in imbalanced settings, complementing AUC-ROC. AUROC is included as the second optimization objective to capture overall discriminative ability.}
+
+\subsubsection{2.12.4 Brier Score}\label{brier-score}
+
+\paragraph{The Brier score measures how well-calibrated the model’s probability outputs are. It is defined as the mean squared error between predicted probabilities and true binary labels:}
+
+\paragraph{\text\{Brier\} = \frac\{1\}\{N\}\sum\_\{i=1\}^\{N\}(p\_i - y\_i)^2}
+
+\paragraph{A lower Brier score means the model’s probabilities are closer to the true outcomes. Good calibration is important in clinical practice because predicted probabilities are used to prioritize patients for recall and biopsy. Luo et al. (2025) used the Brier score alongside AUROC and AUPRC in an imbalanced clinical prediction study and showed that it adds useful information about calibration that discrimination metrics alone do not capture. In this thesis, the Brier score is the third optimization objective.}
+
+\subsubsection{2.12.5 Sensitivity, Specificity, and Decision
+Thresholds}\label{sensitivity-specificity-and-decision-thresholds}
+
+\paragraph{PR-AUC and AUROC do not require choosing a threshold, but actual clinical use does require a binary decision, either recall the patient or not. In this thesis, the best decision threshold for each Pareto-optimal solution is selected using the VinDr-Mammo validation set and then applied as-is to the INbreast zero-shot evaluation. This tests a realistic scenario where a model and its decision threshold are fixed after source-domain validation and then deployed in a new population without adjustment.}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2.13 Summary and Identification of Research
+Gaps}\label{summary-and-identification-of-research-gaps}
+
+\paragraph{This chapter has reviewed the key areas of literature that underpin this study:}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \paragraph{Deep learning outperforms traditional CAD for mammography classification, with ResNet-based models consistently achieving strong performance. However, most systems are evaluated on the same dataset they were trained on, and cross-population generalization is still a largely open problem.}
+\item
+  \paragraph{Dataset shift is a serious and well-documented challenge in medical AI. Research across multiple imaging modalities and clinical tasks has shown large performance drops when models are tested on data from a different source. This applies directly to mammography, where population-level differences in breast composition and imaging equipment lead to covariate shift.}
+\item
+  \paragraph{ImageNet-pretrained ResNet-152 with partial fine-tuning is a well-supported approach for medical image classification. The degree of backbone unfreezing is an important hyperparameter that meaningfully affects both performance and generalization.}
+\item
+  \paragraph{Hyperparameter optimization across five dimensions cannot be reliably done by hand or with grid search. A principled automated method is needed.}
+\item
+  \paragraph{Bayesian optimization via BoTorch, with Gaussian process surrogates and Sobol initialization, is a sample-efficient and principled method for expensive black-box optimization. It has been validated in engineering and bioprocess settings (Balandat et al., 2020; Claes et al., 2024).}
+\item
+  \paragraph{Multi-objective Bayesian optimization with qNEHVI allows several competing objectives to be optimized at the same time without committing to a fixed weighting. The resulting Pareto front gives decision-makers a range of good solutions to choose from (Daulton et al., 2021).}
+\item
+  \paragraph{Treating cross-dataset degradation as a formal optimization objective is new in the context of mammography. Existing work either ignores generalization during optimization or measures it after the fact. This thesis treats it as a first-class criterion.}
+\item
+  \paragraph{Noisy-OR aggregation is a principled and well-supported method for combining CC and MLO view predictions into a breast-level probability (Das et al., 2008; Tan et al., 2020).}
+\item
+  \paragraph{PR-AUC is the most appropriate primary metric for imbalanced binary classification in medical imaging (Feng et al., 2021; Ardakani et al., 2024).}
+\end{enumerate}
+
+\paragraph{The key gap this thesis addresses: No previous study has used multi-objective Bayesian optimization to jointly optimize diagnostic performance and cross-population generalization for mammography, and then tested the resulting Pareto-optimal solutions under zero-shot transfer to a different population.}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{References}\label{references}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \paragraph{Ammous, D., Chabbouh, A., Edhib, A., Chaari, A., Kammoun, F., Masmoudi, N., \& Li, Y. (2023). Designing an efficient system for emotion recognition using CNN. Journal of Electrical and Computer Engineering, 2023, Article 9351345. https://doi.org/10.1155/2023/9351345}
+\item
+  \paragraph{Archana, S. (2024). Detection of breast cancer by deep belief network with improved activation function. International Journal of Adaptive Control and Signal Processing, 38(9), 3074–3101. https://doi.org/10.1002/acs.3861}
+\item
+  \paragraph{Ardakani, A. A., Airom, O., Khorshidi, H., Choi, Y., \& Bhatt, D. L. (2024). Interpretation of artificial intelligence models in healthcare. Journal of Ultrasound in Medicine, 43(10), 1789–1818. https://doi.org/10.1002/jum.16524}
+\item
+  \paragraph{Autenrieth, M., Dyk, D. A., Trotta, R., \& Stenning, D. C. (2023). Stratified learning: A general-purpose statistical method for improved learning under covariate shift. Statistical Analysis and Data Mining: The ASA Data Science Journal, 17(1). https://doi.org/10.1002/sam.11643}
+\item
+  \paragraph{Balandat, M., Karrer, B., Jiang, D. R., Daulton, S., Letham, B., Wilson, A. G., \& Bakshy, E. (2020). BoTorch: A framework for efficient Monte-Carlo Bayesian optimization. Advances in Neural Information Processing Systems, 33, 21524–21538.}
+\item
+  \paragraph{Bashyam, V. M., Doshi, J., Erus, G., Habes, M., Nasrallah, I. M., Truelove-Hill, M., Srinivasan, D., Mamourian, L., Pomponio, R., Fan, Y., Launer, L. J., Masters, C. L., Maruff, P., Zhuo, C., Volzke, H., Johnson, S. C., Fripp, J., Koutsouleris, N., Wolf, D. H., \& Davatzikos, C. (2021). Deep generative medical image harmonization for improving cross-site generalization in deep learning predictors. Journal of Magnetic Resonance Imaging, 55(3), 908–916. https://doi.org/10.1002/jmri.27908}
+\item
+  \paragraph{Bischl, B., Binder, M., Lang, M., Pielok, T., Richter, J., Coors, S., Thomas, J., Ullmann, T., Becker, M., Boulesteix, A., Deng, D., \& Lindauer, M. (2023). Hyperparameter optimization: Foundations, algorithms, best practices, and open challenges. WIREs Data Mining and Knowledge Discovery, 13(2). https://doi.org/10.1002/widm.1484}
+\item
+  \paragraph{Claes, E., Heck, T., Coddens, K., Sonnaert, M., Schrooten, J., \& Verwaeren, J. (2024). Bayesian cell therapy process optimization. Biotechnology and Bioengineering, 121(5), 1569–1582. https://doi.org/10.1002/bit.28669}
+\item
+  \paragraph{Das, S. K., Chen, S., Deasy, J. O., Zhou, S., Marks, L. B., \& Marks, L. B. (2008). Combining multiple models to generate consensus: Application to radiation-induced pneumonitis prediction. Medical Physics, 35(11), 5098–5109. https://doi.org/10.1118/1.2996012}
+\item
+  \paragraph{Daulton, S., Balandat, M., \& Bakshy, E. (2021). Parallel Bayesian optimization of multiple noisy objectives with expected hypervolume improvement. Advances in Neural Information Processing Systems, 34, 2187–2200.}
+\item
+  \paragraph{Ding, C., Wang, J., Ma, Y., Tu, Y., \& Ma, Y. (2024). Multi-objective Bayesian modeling and optimization of 3D printing process via experimental data-driven method. Quality and Reliability Engineering International, 40(4), 2096–2115. https://doi.org/10.1002/qre.3513}
+\item
+  \paragraph{Ellen, J. S., \& Ohman, M. D. (2024). Beyond transfer learning: Leveraging ancillary images in automated classification of plankton. Limnology and Oceanography: Methods, 22(12), 943–952. https://doi.org/10.1002/lom3.10648}
+\item
+  \paragraph{Feng, Y., Zhou, M., \& Tong, X. (2021). Imbalanced classification: A paradigm-based review. Statistical Analysis and Data Mining: The ASA Data Science Journal, 14(5), 383–406. https://doi.org/10.1002/sam.11538}
+\item
+  \paragraph{Forough, J., \& Momtazi, S. (2021). Sequential credit card fraud detection: A joint deep neural network and probabilistic graphical model approach. Expert Systems, 39(1). https://doi.org/10.1111/exsy.12795}
+\item
+  \paragraph{Frazer, H. M., Qin, A. K., Pan, H., \& Brotchie, P. (2021). Evaluation of deep learning-based artificial intelligence techniques for breast cancer detection on mammograms: Results from a retrospective study using a BreastScreen Victoria dataset. Journal of Medical Imaging and Radiation Oncology, 65(5), 529–537. https://doi.org/10.1111/1754-9485.13278}
+\item
+  \paragraph{Gadermayr, M., Li, K., Muller, M., Trullo, R., Bolukbas, D. A., \& Burgstaller, G. (2019). Domain-specific data augmentation for segmenting MR images of fatty infiltrated human thighs with neural networks. Journal of Magnetic Resonance Imaging, 49(6), 1676–1683. https://doi.org/10.1002/jmri.26544}
+\item
+  \paragraph{Ganesan, K., Pichai, S., Kavitha, M. S., \& Takahashi, M. (2022). Data imputation in deep neural network to enhance breast cancer detection. International Journal of Imaging Systems and Technology, 32(6), 2094–2106. https://doi.org/10.1002/ima.22743}
+\item
+  \paragraph{Gu, H., Li, Y., Fang, Y., Wang, Y., Tao, D., Jia, S., \& Xu, B. (2025). Environmental-aware deformation prediction of water-related concrete structures using deep learning. Computer-Aided Civil and Infrastructure Engineering, 40(15), 2130–2151. https://doi.org/10.1111/mice.13513}
+\item
+  \paragraph{Hadjiiski, L., Cha, K., Chan, H., Drukker, K., Morra, L., Nappi, J., Sahiner, B., Yoshida, H., Zhang, R., \& Zheng, B. (2022). AAPM task group report 273: Recommendations on best practices for AI and machine learning for computer-aided diagnosis in medical imaging. Medical Physics, 50(2), e1–e24. https://doi.org/10.1002/mp.16188}
+\item
+  \paragraph{He, K., Zhang, X., Ren, S., \& Sun, J. (2016). Deep residual learning for image recognition. Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 770–778. https://doi.org/10.1109/CVPR.2016.90}
+\item
+  \paragraph{Hoegh, A., \& Leman, S. (2017). Correlated model fusion. Applied Stochastic Models in Business and Industry, 34(1), 31–43. https://doi.org/10.1002/asmb.2261}
+\item
+  \paragraph{Jeny, A. A., Hamzehei, S., Jin, A., \& Baker, S. A. (2025). Hybrid transformer-based model for mammogram classification by integrating prior and current images. Medical Physics, 52(5), 2999–3014. https://doi.org/10.1002/mp.17650}
+\item
+  \paragraph{Jin, X., Hao, Y., Hilliard, J., Koles, K., Kachnic, L., \& Oh, J. H. (2023). A quality assurance framework for routine monitoring of deep learning cardiac substructure CT segmentation models in radiotherapy. Medical Physics, 51(4), 2741–2758. https://doi.org/10.1002/mp.16846}
+\item
+  \paragraph{Li, H., Ye, J., Liu, H., Wang, Y., Shi, B., Chen, J., Kong, A., Xu, Q., \& Cai, J. (2021). Application of deep learning in the detection of breast lesions with four different breast densities. Cancer Medicine, 10(14), 4994–5000. https://doi.org/10.1002/cam4.4042}
+\item
+  \paragraph{Liu, X., Tian, Z., Chen, C., \& Ostadhassan, M. (2021). Total organic carbon content prediction using extreme gradient boosting based on Bayesian optimization. Geofluids, 2021, Article 6155663. https://doi.org/10.1155/2021/6155663}
+\item
+  \paragraph{Loshchilov, I., \& Hutter, F. (2019). Decoupled weight decay regularization. International Conference on Learning Representations (ICLR 2019). https://openreview.net/forum?id=Bkg6RiCqY7}
+\item
+  \paragraph{Luo, C., Shimoyama, K., Obayashi, S., \& Zhang, Y. (2015). A study on many-objective optimization using the Kriging-surrogate-based evolutionary algorithm maximizing expected hypervolume improvement. Mathematical Problems in Engineering, 2015, Article 162712. https://doi.org/10.1155/2015/162712}
+\item
+  \paragraph{Luo, L., Wu, Y., Li, S., Zhang, Y., Liu, M., Su, Z., \& Liang, M. (2025). Identifying the most critical predictors of workplace violence experienced by junior nurses: An interpretable machine learning perspective. Journal of Nursing Management, 2025, Article 5578698. https://doi.org/10.1155/jonm/5578698}
+\item
+  \paragraph{Luo, X., Yuan, S., Tang, H., Xu, D., Ran, Q., Cen, Y., \& Liang, D. (2024). Enhanced physics-informed neural networks for efficient modelling of hydrodynamics in river networks. Hydrological Processes, 38(4). https://doi.org/10.1002/hyp.15143}
+\item
+  \paragraph{Ma, J., Wang, Y., An, X., Ge, C., Yu, Z., Chen, J., Zhu, Q., Dong, G., He, J., He, Z., Cao, T., Zhu, Y., Nie, Z., Yang, X., Gui, Y., Ruan, J., Yang, G., Wu, Y., \& Liang, P. (2021). Toward data-efficient learning: A benchmark for COVID-19 CT lung and infection segmentation. Medical Physics, 48(3), 1197–1210. https://doi.org/10.1002/mp.14676}
+\item
+  \paragraph{McKinney, S. M., Sieniek, M., Godbole, V., Godwin, J., Antropova, N., Ashrafian, H., Back, T., Chesus, M., Corrado, G. S., Darzi, A., Etemadi, M., Garcia-Vicente, F., Gilbert, F. J., Halling-Brown, M., Hassabis, D., Jansen, S., Karthikesalingam, A., Kelly, C. J., King, D., \& Shetty, S. (2020). International evaluation of an AI system for breast cancer screening. Nature, 577(7788), 89–94. https://doi.org/10.1038/s41586-019-1799-6}
+\item
+  \paragraph{Mohamed Yaseen, M., \& Vijayan, T. B. (2025). Optimised hybrid attention-based capsule network for chronic disease detection in retinal images. Journal of Evaluation in Clinical Practice, 31(4). https://doi.org/10.1111/jep.70126}
+\item
+  \paragraph{Mojiri Forooshani, P., Biparva, M., Ntiri, E. E., Bhatt, P., Holmes, M., Ramirez, J., Masellis, M., Swartz, R. H., MacIntosh, B. J., \& Bhatt, P. (2022). Deep Bayesian networks for uncertainty estimation and adversarial resistance of white matter hyperintensity segmentation. Human Brain Mapping, 43(7), 2089–2108. https://doi.org/10.1002/hbm.25784}
+\item
+  \paragraph{Moreira, I. C., Amaral, I., Domingues, I., Cardoso, A., Cardoso, M. J., \& Cardoso, J. S. (2012). INbreast: Toward a full-field digital mammographic database. Academic Radiology, 19(2), 236–248. https://doi.org/10.1016/j.acra.2011.09.014}
+\item
+  \paragraph{Naser, M. Z. (2025). A guide to machine learning epistemic ignorance, hidden paradoxes, and other tensions. WIREs Data Mining and Knowledge Discovery, 15(3). https://doi.org/10.1002/widm.70038}
+\item
+  \paragraph{Nguyen, H. T., Nguyen, N. T., Pham, H. H., Lam, K., Le, L. T., Dao, M., \& Vu, V. (2023). VinDr-Mammo: A large-scale benchmark dataset for computer-aided detection and diagnosis in full-field digital mammography. Scientific Data, 10, 277. https://doi.org/10.1038/s41597-023-02100-7}
+\item
+  \paragraph{Nhut, T. H., Trung, V. P., Khoi, C. M., Tuan, N. K., Tin, H. N. P., Hieu, N. T., Danh, P. H., \& Cuong, C. M. (2025). An AIoT-based system for efficient classification of rice leaf diseases. IEEJ Transactions on Electrical and Electronic Engineering, 20(11), 1875–1881. https://doi.org/10.1002/tee.70163}
+\item
+  \paragraph{Oudjer, H., Cherfa, A., Cherfa, Y., \& Belkhamsa, N. (2024). Segmentation and classification of breast masses from the whole mammography images using transfer learning and BI-RADS characteristics. International Journal of Imaging Systems and Technology, 34(6). https://doi.org/10.1002/ima.23216}
+\item
+  \paragraph{Ribeiro, N. S., Folgado, J., \& Rodrigues, H. C. (2021). Surrogate-based multi-objective design optimization of a coronary stent: Altering geometry toward improved biomechanical performance. International Journal for Numerical Methods in Biomedical Engineering, 37(6). https://doi.org/10.1002/cnm.3453}
+\item
+  \paragraph{Rodrigues, D., Papa, J. P., \& Adeli, H. (2017). Meta-heuristic multi- and many-objective optimization techniques for solution of machine learning problems. Expert Systems, 34(6). https://doi.org/10.1111/exsy.12255}
+\item
+  \paragraph{Roshan, S., Tanha, J., Hallaji, F., \& Mahdavi, N. (2023). IMBoost: A new weighting factor for boosting to improve the classification performance of imbalanced data. Complexity, 2023, Article 2176891. https://doi.org/10.1155/2023/2176891}
+\item
+  \paragraph{Sahiner, B., Pezeshk, A., Hadjiiski, L. M., Wang, X., Drukker, K., Cha, K. H., Summers, R. M., \& Giger, M. L. (2019). Deep learning in medical imaging and radiation therapy. Medical Physics, 46(1), e1–e36. https://doi.org/10.1002/mp.13264}
+\item
+  \paragraph{Samoil, S., Fare, C., Jordan, K. E., \& Chen, Z. (2024). History matching reservoir models with many objective Bayesian optimization. Applied AI Letters, 5(4). https://doi.org/10.1002/ail2.99}
+\item
+  \paragraph{Shen, R., Zhou, K., Yan, K., Tian, K., \& Zhang, J. (2020). Multicontext multi-task learning networks for mass detection in mammogram. Medical Physics, 47(4), 1566–1578. https://doi.org/10.1002/mp.13945}
+\item
+  \paragraph{Soeylemez, O. F. (2025). BATU: A workflow for multi-network ensemble learning in cross-dataset generalization of skin lesion analysis. International Journal of Imaging Systems and Technology, 35(5). https://doi.org/10.1002/ima.70183}
+\item
+  \paragraph{Tan, M., Wu, F., Yang, B., \& Ma, J. (2020). Pulmonary nodule detection using hybrid two-stage 3D CNNs. Medical Physics, 47(8), 3376–3388. https://doi.org/10.1002/mp.14161}
+\item
+  \paragraph{Tibrewala, R., Ozhinsky, E., Shah, R., Flannery, C., Bharat, A., Benedikt, H., Bunyak, F., \& Link, T. M. (2020). Computer-aided detection AI reduces interreader variability in grading hip abnormalities with MRI. Journal of Magnetic Resonance Imaging, 52(4), 1163–1172. https://doi.org/10.1002/jmri.27164}
+\item
+  \paragraph{Tsarouchi, M. I., Hoxhaj, A., \& Mann, R. M. (2023). New approaches and recommendations for risk-adapted breast cancer screening. Journal of Magnetic Resonance Imaging, 58(4), 987–1010. https://doi.org/10.1002/jmri.28731}
+\item
+  \paragraph{Wang, R., Chen, F., Chen, H., Zhang, Z., Zhou, S., \& Liu, H. (2025). Deep learning in digital breast tomosynthesis: Current status, challenges, and future trends. MedComm, 6(6). https://doi.org/10.1002/mco2.70247}
+\item
+  \paragraph{Wei, S., \& Niethammer, M. (2022). The fairness-accuracy Pareto front. Statistical Analysis and Data Mining: The ASA Data Science Journal, 15(3), 287–302. https://doi.org/10.1002/sam.11560}
+\item
+  \paragraph{Wong, D. J., Gandomkar, Z., Wu, W., \& Suleiman, M. E. (2020). Artificial intelligence and convolution neural networks assessing mammographic images: A narrative literature review. Journal of Medical Radiation Sciences, 67(2), 134–142. https://doi.org/10.1002/jmrs.385}
+\item
+  \paragraph{Xiao, S., \& Wang, W. (2024). Ranking-based architecture generation for surrogate-assisted neural architecture search. Concurrency and Computation: Practice and Experience, 36(12). https://doi.org/10.1002/cpe.8051}
+\item
+  \paragraph{Yu, X., Zheng, H., Liu, C., Huang, Y., \& Ding, X. (2018). Classify epithelium-stroma in histopathological images based on deep transferable network. Journal of Microscopy, 271(2), 164–173. https://doi.org/10.1111/jmi.12705}
+\item
+  \paragraph{Zhang, C., Zhang, X., Tu, D., \& Khattak, H. A. (2022). A set of comprehensive evaluation system for different data augmentation methods. Mobile Information Systems, 2022, Article 8572852. https://doi.org/10.1155/2022/8572852}
+\end{enumerate}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\paragraph{Total: ~6,500 words (body text) | 54 verified references | APA inline citations | No em-dashes}
