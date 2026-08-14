@@ -6,7 +6,7 @@ optimization:
   n_initial: 12
   n_iterations: 5
   candidates_per_iteration: 4
-  resume_from_csv: false
+  resume_from_csv: true
 
 training:
   max_epochs: 10
@@ -26,7 +26,7 @@ paths:
   inbreast_dicom_dir: "/kaggle/input/datasets/ramanathansp20/inbreast-dataset/INbreast Release 1.0/AllDICOMs"
   inbreast_metadata: "/kaggle/input/datasets/ramanathansp20/inbreast-dataset/INbreast Release 1.0/INbreast.xls"
 
-  csv_resume_path: ""
-  inbreast_split_info_path: ""
+  csv_resume_path: "/kaggle/working/evaluations.csv"
+  inbreast_split_info_path: "/kaggle/working/inbreast_split_info.json"
 
   output_dir: "/kaggle/working/results/botorch_mobo"
