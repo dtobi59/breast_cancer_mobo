@@ -4,13 +4,13 @@ environment:
 
 optimization:
   n_initial: 16
-  n_iterations: 6
+  n_iterations: 10
   candidates_per_iteration: 4
   resume_from_csv: false
 
 training:
-  max_epochs: 100
-  patience: 10
+  max_epochs: 10
+  patience: 5
   batch_size: 4
   num_workers: 2
 
