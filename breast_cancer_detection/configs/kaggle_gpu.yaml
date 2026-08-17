@@ -20,14 +20,14 @@ smoke_test:
 paths:
   project_root: "/kaggle/working/breast_cancer_mobo"
   
-  vindr_images: "/kaggle/input/davidolaboye/vindr_mammo_dataset_dave/images"
-  vindr_csv: "/kaggle/input/davidolaboye/vindr_mammo_dataset_dave/metadata/stratified_selection.csv"
+  vindr_images: "/kaggle/input/datasets/davidolaboye/mobo-vindr/vindr_mammo_dataset_dave/images"
+  vindr_csv: "/kaggle/input/datasets/davidolaboye/mobo-vindr/vindr_mammo_dataset_dave/metadata/stratified_selection.csv"
 
   inbreast_dicom_dir: "/kaggle/input/datasets/ramanathansp20/inbreast-dataset/INbreast Release 1.0/AllDICOMs"
   inbreast_metadata: "/kaggle/input/datasets/ramanathansp20/inbreast-dataset/INbreast Release 1.0/INbreast.xls"
 
   csv_resume_path: "/kaggle/input/datasets/olaboyedeborah/resume-data/evaluations.csv"
 
-  inbreast_split_info_path: "/kaggle/input/davidolaboye/inbreast_split_info.json"
+  inbreast_split_info_path: "/kaggle/input/datasets/davidolaboye/split-data/inbreast_split_info.json"
 
   output_dir: "/kaggle/working/results/botorch_mobo"
