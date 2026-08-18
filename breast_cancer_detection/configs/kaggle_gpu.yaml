@@ -26,7 +26,7 @@ paths:
   inbreast_dicom_dir: "/kaggle/input/datasets/ramanathansp20/inbreast-dataset/INbreast Release 1.0/AllDICOMs"
   inbreast_metadata: "/kaggle/input/datasets/ramanathansp20/inbreast-dataset/INbreast Release 1.0/INbreast.xls"
 
-  csv_resume_path: "/kaggle/working/results/botorch_mobo/kaggle_gpu_20260818_130241/evaluations.csv"
+  csv_resume_path: "/kaggle/input/datasets/olaboyedeborah/resume-data1/evaluations.csv"
 
   inbreast_split_info_path: "/kaggle/input/datasets/davidolaboye/split-data/inbreast_split_info.json"
 
