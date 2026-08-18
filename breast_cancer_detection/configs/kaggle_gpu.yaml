@@ -6,7 +6,7 @@ optimization:
   n_initial: 12
   n_iterations: 5
   candidates_per_iteration: 4
-  resume_from_csv: true
+  resume_from_csv: false
 
 training:
   max_epochs: 10
